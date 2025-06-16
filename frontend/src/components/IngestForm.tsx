@@ -6,7 +6,7 @@
  * React component rendering the ingestion form.
  */
 
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { ingestUrl, ingestPdf } from "../lib/api";
 
 export default function IngestForm() {
@@ -18,6 +18,22 @@ export default function IngestForm() {
   const [file, setFile] = useState<File | null>(null);
   const [link, setLink] = useState("");
   const [message, setMessage] = useState("");
+  const [isLocalhost, setIsLocalhost] = useState(false);
+
+  /**
+   * Check if running on localhost
+   */
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      setIsLocalhost(hostname === 'localhost' || hostname === '127.0.0.1');
+      
+      // Set a default team ID for localhost
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        setTeamId('localhost-team');
+      }
+    }
+  }, []);
 
   /**
    * Handles form submission by choosing URL vs PDF ingestion.
@@ -37,15 +53,22 @@ export default function IngestForm() {
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: "auto" }}>
       <h1>KB Ingestor</h1>
-      <label>
-        Team ID
-        <input
-          value={teamId}
-          onChange={(e) => setTeamId(e.target.value)}
-          required
-        />
-      </label>
-      <hr />
+      
+      {/* Only show Team ID input when NOT on localhost */}
+      {!isLocalhost && (
+        <>
+          <label>
+            Team ID
+            <input
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              required
+            />
+          </label>
+          <hr />
+        </>
+      )}
+      
       <label>
         Blog/Guide URL
         <input
