@@ -1,0 +1,48 @@
+# Python byte‑compiled and cache files
+__pycache__/
+*.py[cod]
+
+# Python virtual environments
+
+env/
+
+
+# Backend cache / test artifacts
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# Celery
+celerybeat-schedule
+
+# Application data outputs
+data/
+
+# Logs
+logs/
+*.log
+
+# Environment variable files
+.env.example
+.env.local
+.env.*.local
+
+# Docker Compose override
+docker-compose.override.yml
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# macOS file system
+.DS_Store
+
+# Node dependencies
+frontend/node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+
+# Miscellaneous
+*.swp
+*.swo
