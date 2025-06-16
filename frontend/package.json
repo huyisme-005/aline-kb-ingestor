@@ -10,5 +10,8 @@
     "next": "13.x",
     "react": "18.x",
     "react-dom": "18.x"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3"
   }
 }
