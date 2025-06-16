@@ -5,12 +5,17 @@
  * Provides wrappers around backend ingestion endpoints.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Get API URL from environment or default to localhost
+const getApiUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    // Client-side
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  }
+  // Server-side
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+};
 
-// Ensure API_URL is properly defined
-if (!API_URL) {
-  console.error('API_URL is not defined');
-}
+const API_URL = getApiUrl();
 
 /**
  * POST /ingest/url to queue a URL scrape.
@@ -22,28 +27,61 @@ if (!API_URL) {
 export async function ingestUrl(teamId: string, url: string) {
   try {
     console.log('API_URL:', API_URL);
-    console.log('Full URL:', `${API_URL}/ingest/url`);
     
+    if (!teamId || !url) {
+      throw new Error('Team ID and URL are required');
+    }
+
     const form = new FormData();
     form.append("team_id", teamId);
     form.append("source_url", url);
     
     const fetchUrl = `${API_URL}/ingest/url`;
-    console.log('Fetching:', fetchUrl);
+    console.log('Fetching URL:', fetchUrl);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const res = await fetch(fetchUrl, {
       method: "POST",
-      body: form
+      body: form,
+      signal: controller.signal,
+      headers: {
+        // Don't set Content-Type for FormData, let browser set it
+      }
     });
     
+    clearTimeout(timeoutId);
+    
+    console.log('Response status:', res.status);
+    console.log('Response ok:', res.ok);
+    
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
-    return await res.json();
+    const result = await res.json();
+    console.log('Success response:', result);
+    return result;
+    
   } catch (error) {
     console.error('Error in ingestUrl:', error);
-    return { error: error instanceof Error ? error.message : 'Unknown error occurred' };
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { error: 'Request timed out. Please check if the backend server is running.' };
+      }
+      if (error.message.includes('fetch')) {
+        return { 
+          error: `Failed to connect to server at ${API_URL}. Please ensure the backend is running and accessible.`,
+          details: error.message 
+        };
+      }
+      return { error: error.message };
+    }
+    
+    return { error: 'An unknown error occurred' };
   }
 }
 
@@ -63,26 +101,70 @@ export async function ingestPdf(
   try {
     console.log('API_URL:', API_URL);
     
+    if (!teamId) {
+      throw new Error('Team ID is required');
+    }
+    
+    if (!file && !link) {
+      throw new Error('Either a PDF file or Google Drive link is required');
+    }
+
     const form = new FormData();
     form.append("team_id", teamId);
-    if (file) form.append("pdf_file", file);
-    if (link) form.append("pdf_link", link);
+    if (file) {
+      console.log('Adding file:', file.name, 'Size:', file.size);
+      form.append("pdf_file", file);
+    }
+    if (link) {
+      console.log('Adding link:', link);
+      form.append("pdf_link", link);
+    }
     
     const fetchUrl = `${API_URL}/ingest/pdf`;
-    console.log('Fetching:', fetchUrl);
+    console.log('Fetching URL:', fetchUrl);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for file uploads
     
     const res = await fetch(fetchUrl, {
       method: "POST",
-      body: form
+      body: form,
+      signal: controller.signal,
+      headers: {
+        // Don't set Content-Type for FormData, let browser set it
+      }
     });
     
+    clearTimeout(timeoutId);
+    
+    console.log('Response status:', res.status);
+    console.log('Response ok:', res.ok);
+    
     if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
-    return await res.json();
+    const result = await res.json();
+    console.log('Success response:', result);
+    return result;
+    
   } catch (error) {
     console.error('Error in ingestPdf:', error);
-    return { error: error instanceof Error ? error.message : 'Unknown error occurred' };
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { error: 'Request timed out. Please check if the backend server is running.' };
+      }
+      if (error.message.includes('fetch')) {
+        return { 
+          error: `Failed to connect to server at ${API_URL}. Please ensure the backend is running and accessible.`,
+          details: error.message 
+        };
+      }
+      return { error: error.message };
+    }
+    
+    return { error: 'An unknown error occurred' };
   }
 }
