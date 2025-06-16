@@ -8,6 +8,11 @@ Abstract base class defining the scraper plugin interface.
 from abc import ABC, abstractmethod
 from typing import List
 from models import ContentItem
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class BaseScraper(ABC):
     """
@@ -52,12 +57,26 @@ class BaseScraper(ABC):
             A dict matching the KBPayload model.
         """
         items = []
-        for url in self.discover_links():
-            try:
-                item = self.parse_page(url)
-                item.user_id = team_id
-                items.append(item)
-            except Exception as e:
-                # Logging here if desired
-                print(f"Error parsing {url}: {e}")
+        
+        try:
+            # Discover all URLs to scrape
+            urls = self.discover_links()
+            logger.info(f"Discovered {len(urls)} URLs to scrape")
+            
+            # Parse each URL
+            for i, url in enumerate(urls):
+                try:
+                    logger.info(f"Parsing URL {i+1}/{len(urls)}: {url}")
+                    item = self.parse_page(url)
+                    item.user_id = team_id
+                    items.append(item)
+                    logger.info(f"Successfully parsed: {item.title}")
+                except Exception as e:
+                    logger.error(f"Error parsing {url}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error during scraping: {e}")
+            
+        logger.info(f"Scraping completed. Total items: {len(items)}")
         return {"team_id": team_id, "items": [i.dict() for i in items]}
