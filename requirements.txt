@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+requests
+beautifulsoup4
+html2text
+pdfplumber
+pydantic
+celery[redis]
+redis
+pytest
+pytest-cov
+vcrpy
