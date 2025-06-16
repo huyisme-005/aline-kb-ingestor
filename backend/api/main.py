@@ -56,7 +56,7 @@ async def health_check():
     """
     return {"status": "healthy", "service": "aline-kb-ingestor"}
 
-@app.post("/ingest/url", status_code=202)
+@app.post("/ingest/url")
 async def ingest_url(
     team_id: str = Form(...),
     source_url: str = Form(...),
@@ -66,7 +66,7 @@ async def ingest_url(
     Ingest a web page by URL.
 
     Chooses the appropriate scraper based on URL pattern,
-    then queues a background job to persist the payload.
+    then returns the payload directly (and optionally queues background job).
 
     Args:
         team_id: The team/user ID to attach to the content.
@@ -74,7 +74,7 @@ async def ingest_url(
         background_tasks: FastAPI background tasks handler.
 
     Returns:
-        JSON indicating queue status and item count.
+        JSON payload with team_id and scraped items.
     """
     try:
         # Determine scraper based on URL pattern
@@ -97,25 +97,24 @@ async def ingest_url(
         
         if not payload["items"]:
             return JSONResponse(
-                status_code=204,
-                content={"status": "completed", "items": 0, "message": "No content found to ingest"}
+                status_code=200,
+                content={"team_id": team_id, "items": [], "message": "No content found to ingest"}
             )
 
-        # Queue background task for ingestion
+        # Queue background task for ingestion (optional)
         if background_tasks:
             background_tasks.add_task(ingest_payload, payload)
         
+        # Return the actual payload instead of just status
         return {
-            "status": "queued",
-            "items": len(payload["items"]),
             "team_id": team_id,
-            "source_url": source_url
+            "items": payload["items"]
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
-@app.post("/ingest/pdf", status_code=202)
+@app.post("/ingest/pdf")
 async def ingest_pdf(
     team_id: str = Form(...),
     file: UploadFile = File(...),
@@ -132,7 +131,7 @@ async def ingest_pdf(
         background_tasks: FastAPI background tasks handler.
         
     Returns:
-        JSON indicating queue status and item count.
+        JSON payload with team_id and extracted items.
     """
     try:
         # Validate file type
@@ -157,19 +156,18 @@ async def ingest_pdf(
             
             if not payload["items"]:
                 return JSONResponse(
-                    status_code=204,
-                    content={"status": "completed", "items": 0, "message": "No chapters found in PDF"}
+                    status_code=200,
+                    content={"team_id": team_id, "items": [], "message": "No chapters found in PDF"}
                 )
             
-            # Queue background task for ingestion
+            # Queue background task for ingestion (optional)
             if background_tasks:
                 background_tasks.add_task(ingest_payload, payload)
             
+            # Return the actual payload instead of just status
             return {
-                "status": "queued",
-                "items": len(payload["items"]),
                 "team_id": team_id,
-                "filename": file.filename
+                "items": payload["items"]
             }
             
         finally:
