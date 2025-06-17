@@ -123,9 +123,7 @@ export default function IngestForm() {
    * Get display name for URL
    */
   const getUrlDisplayName = (url: string) => {
-    if (url.includes('interviewing.io/blog')) return 'Interviewing.io Blog';
-    if (url.includes('interviewing.io/topics')) return 'Interviewing.io Topics';
-    if (url.includes('interviewing.io/learn')) return 'Interviewing.io Learn';
+    if (url.includes('interviewing.io')) return 'Interviewing.io';
     if (url.includes('nilmamano.com')) return 'Nil Mamano DSA Blog';
     if (url.includes('drive.google.com')) return 'Google Drive Folder';
     if (url.includes('shreycation.substack.com')) return 'Shreycation Substack';
