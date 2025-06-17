@@ -25,9 +25,11 @@ export default function IngestForm() {
    * Supported URL patterns for easy reference
    */
   const supportedUrls = [
-    "https://interviewing.io",
-    "https://nilmamano.com",
-    "https://drive.google.com/drive/folders",
+    "https://interviewing.io/blog",
+    "https://interviewing.io/topics", 
+    "https://interviewing.io/learn",
+    "https://nilmamano.com/blog/category/dsa",
+    "https://drive.google.com/drive/folders/1AdUu4jh6DGwmCxfgnDQEMWWyo6_whPHJ",
     "https://shreycation.substack.com/"
   ];
 
@@ -123,7 +125,9 @@ export default function IngestForm() {
    * Get display name for URL
    */
   const getUrlDisplayName = (url: string) => {
-    if (url.includes('interviewing.io')) return 'Interviewing.io';
+    if (url.includes('interviewing.io/blog')) return 'Interviewing.io Blog';
+    if (url.includes('interviewing.io/topics')) return 'Interviewing.io Topics';
+    if (url.includes('interviewing.io/learn')) return 'Interviewing.io Learn';
     if (url.includes('nilmamano.com')) return 'Nil Mamano DSA Blog';
     if (url.includes('drive.google.com')) return 'Google Drive Folder';
     if (url.includes('shreycation.substack.com')) return 'Shreycation Substack';

@@ -48,8 +48,10 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
   }
 
   const supportedPatterns = [
-    'interviewing.io',
-    'nilmamano.com',
+    'interviewing.io/blog',
+    'interviewing.io/topics', 
+    'interviewing.io/learn',
+    'nilmamano.com/blog/category/dsa',
     'drive.google.com/drive/folders',
     '.substack.com' // Updated to match any Substack publication
   ];
