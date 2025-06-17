@@ -1,14 +1,4 @@
 """
-backend/scrapers/google_drive_scraper.py
-
-Placeholder scraper for handling Google Drive links.
-"""
-
-class GoogleDriveScraper:
-    def run(self, team_id: str):
-        # TODO: Implement Google Drive scraping logic here
-        return {"team_id": team_id, "items": []}
-"""
 @author HUy Le (huyisme-005)
 backend/api/main.py
 
@@ -23,6 +13,8 @@ from scrapers.interviewing_topics import InterviewingTopicsScraper
 from scrapers.interviewing_guides import InterviewingGuidesScraper
 from scrapers.nil_mamano_dsa import NilMamanoDSAScraper
 from scrapers.substack_scraper import SubstackScraper
+from scrapers.google_drive_scraper import GoogleDriveScraper
+from scrapers.generic_scraper import GenericScraper
 from importers.pdf_importer import extract_chapters
 from api.tasks import ingest_payload
 import os
@@ -62,10 +54,10 @@ URL_SCRAPER_MAP = {
     "interviewing.io/blog": InterviewingBlogScraper,
     "interviewing.io/topics": InterviewingTopicsScraper,
     "interviewing.io/learn": InterviewingGuidesScraper,
-    "interviewing.io/guides":InterviewingGuidesScraper,
+    "interviewing.io/guides": InterviewingGuidesScraper,
     "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
-    'drive.google.com/drive/folders':GoogleDriveScraper,
-    'drive.google.com/file/d/':GoogleDriveScraper,
+    'drive.google.com/drive/folders': GoogleDriveScraper,
+    'drive.google.com/file/d/': GoogleDriveScraper,
 }
 
 def get_scraper_for_url(url: str):
@@ -76,11 +68,13 @@ def get_scraper_for_url(url: str):
         url: The URL to check
         
     Returns:
-        Scraper class or instance if supported, None otherwise
+        Scraper class or instance if supported, always returns something
     """
     # First check exact pattern matches
     for pattern, scraper_class in URL_SCRAPER_MAP.items():
         if pattern in url:
+            if scraper_class == GoogleDriveScraper:
+                return GoogleDriveScraper(url)
             return scraper_class
     
     # Check for Substack URLs
@@ -90,7 +84,8 @@ def get_scraper_for_url(url: str):
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         return SubstackScraper(base_url)
     
-    return None
+    # Fallback to generic scraper for any other URL
+    return GenericScraper(url)
 
 def is_substack_url(url: str) -> bool:
     """
@@ -118,6 +113,7 @@ def get_supported_patterns():
     """
     patterns = list(URL_SCRAPER_MAP.keys())
     patterns.append("*.substack.com")  # Add Substack pattern
+    patterns.append("*")  # Generic scraper supports any URL
     return patterns
 
 @app.get("/")
@@ -132,13 +128,14 @@ async def root():
         "message": "Aline KB Ingestor API",
         "version": "0.1.0",
         "status": "healthy",
+        "description": "Now supports ANY website URL and ALL PDF types",
         "endpoints": {
             "ingest_url": "/ingest/url",
             "ingest_pdf": "/ingest/pdf",
             "health": "/health",
             "scrapers": "/scrapers"
         },
-        "supported_sources": get_supported_patterns()
+        "supported_sources": "All websites and PDF files"
     }
 
 @app.get("/health")
@@ -194,13 +191,6 @@ async def ingest_url(
         
         # Determine scraper based on URL pattern
         scraper = get_scraper_for_url(source_url)
-        
-        if not scraper:
-            supported_patterns = get_supported_patterns()
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported URL: {source_url}. Supported patterns: {', '.join(supported_patterns)}"
-            )
 
         # Initialize scraper if it's a class
         if isinstance(scraper, type):
