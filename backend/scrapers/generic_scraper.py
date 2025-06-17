@@ -7,7 +7,6 @@ Generic scraper for any website content.
 
 import requests
 from bs4 import BeautifulSoup
-import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
 from urllib.parse import urljoin, urlparse
