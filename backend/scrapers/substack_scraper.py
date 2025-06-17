@@ -6,7 +6,6 @@ Generic Substack scraper for any substack.com blog.
 
 import requests
 from bs4 import BeautifulSoup
-import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
 import logging
