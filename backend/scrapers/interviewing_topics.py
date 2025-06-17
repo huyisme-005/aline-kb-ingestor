@@ -32,7 +32,8 @@ class InterviewingTopicsScraper(BaseScraper):
         soup = BeautifulSoup(resp.text, "html.parser")
         title = soup.select_one("h1").get_text(strip=True)
         body_html = str(soup.select_one(".guide-content"))
-        markdown = html2text.html2text(body_html)
+        from utils.html2md import convert
+        markdown = convert(body_html)
         return ContentItem(
             title=title,
             content=markdown,
