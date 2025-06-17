@@ -25,11 +25,9 @@ export default function IngestForm() {
    * Supported URL patterns for easy reference
    */
   const supportedUrls = [
-    "https://interviewing.io/blog",
-    "https://interviewing.io/topics", 
-    "https://interviewing.io/learn",
-    "https://nilmamano.com/blog/category/dsa",
-    "https://drive.google.com/drive/folders/1AdUu4jh6DGwmCxfgnDQEMWWyo6_whPHJ",
+    "https://interviewing.io",
+    "https://nilmamano.com",
+    "https://drive.google.com/drive/folders",
     "https://shreycation.substack.com/"
   ];
 
