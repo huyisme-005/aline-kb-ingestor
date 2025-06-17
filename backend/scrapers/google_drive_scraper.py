@@ -1,4 +1,4 @@
-from backend.base_scraper import BaseScraper
+from base_scraper import BaseScraper
 from models import ContentItem # Assuming ContentItem is defined in models.py
 from typing import List
 import logging
