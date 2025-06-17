@@ -22,14 +22,48 @@ const API_URL = getApiUrl();
  */
 const checkBackendHealth = async (): Promise<boolean> => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     const response = await fetch(`${API_URL}/health`, { 
       method: 'GET',
-      timeout: 5000 
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     return response.ok;
   } catch {
     return false;
   }
+};
+
+/**
+ * Validate URL against supported domains
+ */
+const validateUrl = (url: string): { valid: boolean; message?: string } => {
+  try {
+    new URL(url);
+  } catch {
+    return { valid: false, message: 'Invalid URL format' };
+  }
+
+  const supportedPatterns = [
+    'interviewing.io/blog',
+    'interviewing.io/topics',
+    'interviewing.io/learn',
+    'nilmamano.com/blog/category/dsa'
+  ];
+
+  const isSupported = supportedPatterns.some(pattern => url.includes(pattern));
+  
+  if (!isSupported) {
+    return {
+      valid: false,
+      message: `Unsupported URL. Supported patterns: ${supportedPatterns.join(', ')}`
+    };
+  }
+
+  return { valid: true };
 };
 
 /**
@@ -47,6 +81,23 @@ export async function ingestUrl(teamId: string, url: string) {
       throw new Error('Team ID and URL are required');
     }
 
+    // Validate URL first
+    const validation = validateUrl(url);
+    if (!validation.valid) {
+      return { error: validation.message };
+    }
+
+    // Check backend health first
+    const isHealthy = await checkBackendHealth();
+    if (!isHealthy) {
+      return {
+        error: `Backend server is not responding at ${API_URL}. Please ensure:
+1. Backend server is running (python -m uvicorn main:app --reload)
+2. Backend is accessible at ${API_URL}
+3. No firewall blocking the connection`
+      };
+    }
+
     const form = new FormData();
     form.append("team_id", teamId);
     form.append("source_url", url);
@@ -55,16 +106,12 @@ export async function ingestUrl(teamId: string, url: string) {
     console.log('Fetching URL:', fetchUrl);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
     
     const res = await fetch(fetchUrl, {
       method: "POST",
       body: form,
       signal: controller.signal,
-      headers: {
-        // Don't set Content-Type for FormData, let browser set it
-      },
-      // Add mode for CORS if needed
       mode: 'cors'
     });
     
@@ -75,6 +122,7 @@ export async function ingestUrl(teamId: string, url: string) {
     
     if (!res.ok) {
       const errorText = await res.text();
+      console.error('Error response:', errorText);
       throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
@@ -87,12 +135,12 @@ export async function ingestUrl(teamId: string, url: string) {
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        return { error: 'Request timed out. Please check if the backend server is running.' };
+        return { error: 'Request timed out. Please check if the backend server is running and the URL is accessible.' };
       }
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
           error: `Cannot connect to backend server at ${API_URL}. Please ensure:
-1. Backend server is running
+1. Backend server is running (cd backend && python -m uvicorn api.main:app --reload)
 2. Backend is accessible at ${API_URL}
 3. No firewall blocking the connection
 4. CORS is properly configured on backend`,
@@ -130,31 +178,37 @@ export async function ingestPdf(
       throw new Error('Either a PDF file or Google Drive link is required');
     }
 
+    // Check backend health first
+    const isHealthy = await checkBackendHealth();
+    if (!isHealthy) {
+      return {
+        error: `Backend server is not responding at ${API_URL}. Please ensure the backend server is running.`
+      };
+    }
+
     const form = new FormData();
     form.append("team_id", teamId);
+    
     if (file) {
       console.log('Adding file:', file.name, 'Size:', file.size);
-      form.append("pdf_file", file);
+      form.append("file", file); // Note: backend expects "file", not "pdf_file"
     }
-    if (link) {
-      console.log('Adding link:', link);
-      form.append("pdf_link", link);
+    
+    // Note: Your backend doesn't currently support PDF links, only file uploads
+    if (link && !file) {
+      return { error: 'PDF links are not currently supported. Please upload a PDF file directly.' };
     }
     
     const fetchUrl = `${API_URL}/ingest/pdf`;
     console.log('Fetching URL:', fetchUrl);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for file uploads
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for file uploads
     
     const res = await fetch(fetchUrl, {
       method: "POST",
       body: form,
       signal: controller.signal,
-      headers: {
-        // Don't set Content-Type for FormData, let browser set it
-      },
-      // Add mode for CORS if needed
       mode: 'cors'
     });
     
@@ -165,6 +219,7 @@ export async function ingestPdf(
     
     if (!res.ok) {
       const errorText = await res.text();
+      console.error('Error response:', errorText);
       throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
@@ -177,15 +232,11 @@ export async function ingestPdf(
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        return { error: 'Request timed out. Please check if the backend server is running.' };
+        return { error: 'Request timed out. Large PDF files may take longer to process.' };
       }
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
-          error: `Cannot connect to backend server at ${API_URL}. Please ensure:
-1. Backend server is running  
-2. Backend is accessible at ${API_URL}
-3. No firewall blocking the connection
-4. CORS is properly configured on backend`,
+          error: `Cannot connect to backend server at ${API_URL}. Please ensure the backend server is running.`,
           details: error.message 
         };
       }
