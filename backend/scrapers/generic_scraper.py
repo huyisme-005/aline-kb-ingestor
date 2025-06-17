@@ -159,8 +159,17 @@ class GenericScraper(BaseScraper):
             h.ignore_links = False
             h.ignore_images = False
             h.body_width = 0
+            h.unicode_snob = True
+            h.escape_snob = True
             markdown = h.handle(html_content)
+            # Clean up and normalize whitespace while preserving structure
             content = markdown.strip()
+            # Replace multiple consecutive newlines with double newlines for proper paragraphs
+            import re
+            content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
+            # Ensure proper spacing after headers and lists
+            content = re.sub(r'(#{1,6}[^\n]*)\n([^\n#])', r'\1\n\n\2', content)
+            content = re.sub(r'(\*[^\n]*)\n([^\n\*\s])', r'\1\n\n\2', content)
             
             # If content is too short, try to get more text
             if len(content) < 100:
