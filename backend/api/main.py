@@ -12,12 +12,14 @@ from scrapers.interviewing_blog import InterviewingBlogScraper
 from scrapers.interviewing_topics import InterviewingTopicsScraper
 from scrapers.interviewing_guides import InterviewingGuidesScraper
 from scrapers.nil_mamano_dsa import NilMamanoDSAScraper
+from scrapers.substack_scraper import SubstackScraper
 from importers.pdf_importer import extract_chapters
 from api.tasks import ingest_payload
 import os
 import tempfile
 import logging
 from urllib.parse import urlparse
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -61,12 +63,49 @@ def get_scraper_for_url(url: str):
         url: The URL to check
         
     Returns:
-        Scraper class if supported, None otherwise
+        Scraper class or instance if supported, None otherwise
     """
+    # First check exact pattern matches
     for pattern, scraper_class in URL_SCRAPER_MAP.items():
         if pattern in url:
             return scraper_class
+    
+    # Check for Substack URLs
+    if is_substack_url(url):
+        # Extract base URL for Substack
+        parsed = urlparse(url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        return SubstackScraper(base_url)
+    
     return None
+
+def is_substack_url(url: str) -> bool:
+    """
+    Check if URL is a valid Substack publication URL.
+    
+    Args:
+        url: URL to check
+        
+    Returns:
+        True if it's a Substack URL, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        # Check if hostname ends with .substack.com
+        return parsed.netloc.endswith('.substack.com')
+    except:
+        return False
+
+def get_supported_patterns():
+    """
+    Get list of all supported URL patterns including dynamic ones.
+    
+    Returns:
+        List of supported patterns
+    """
+    patterns = list(URL_SCRAPER_MAP.keys())
+    patterns.append("*.substack.com")  # Add Substack pattern
+    return patterns
 
 @app.get("/")
 async def root():
@@ -86,7 +125,7 @@ async def root():
             "health": "/health",
             "scrapers": "/scrapers"
         },
-        "supported_sources": list(URL_SCRAPER_MAP.keys())
+        "supported_sources": get_supported_patterns()
     }
 
 @app.get("/health")
@@ -100,7 +139,7 @@ async def health_check():
     return {
         "status": "healthy", 
         "service": "aline-kb-ingestor",
-        "supported_patterns": list(URL_SCRAPER_MAP.keys())
+        "supported_patterns": get_supported_patterns()
     }
 
 @app.post("/ingest/url")
@@ -141,20 +180,26 @@ async def ingest_url(
             )
         
         # Determine scraper based on URL pattern
-        scraper_class = get_scraper_for_url(source_url)
+        scraper = get_scraper_for_url(source_url)
         
-        if not scraper_class:
-            supported_patterns = list(URL_SCRAPER_MAP.keys())
+        if not scraper:
+            supported_patterns = get_supported_patterns()
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported URL: {source_url}. Supported patterns: {', '.join(supported_patterns)}"
             )
 
-        # Initialize and run scraper
-        scraper = scraper_class()
-        logger.info(f"Using scraper: {scraper_class.__name__}")
+        # Initialize scraper if it's a class
+        if isinstance(scraper, type):
+            scraper_instance = scraper()
+            scraper_name = scraper.__name__
+        else:
+            scraper_instance = scraper
+            scraper_name = scraper.__class__.__name__
+            
+        logger.info(f"Using scraper: {scraper_name}")
         
-        payload = scraper.run(team_id)
+        payload = scraper_instance.run(team_id)
         
         if not payload or not payload.get("items"):
             return JSONResponse(
@@ -297,16 +342,26 @@ async def list_scrapers():
     """
     scrapers_info = {}
     
+    # Add static scrapers
     for pattern, scraper_class in URL_SCRAPER_MAP.items():
-        scrapers_info[pattern.replace(".", "_").replace("/", "_")] = {
+        key = pattern.replace(".", "_").replace("/", "_")
+        scrapers_info[key] = {
             "class": scraper_class.__name__,
             "pattern": pattern,
             "description": f"Scrapes content from {pattern}",
             "example_url": f"https://{pattern}"
         }
     
+    # Add Substack scraper info
+    scrapers_info["substack"] = {
+        "class": "SubstackScraper",
+        "pattern": "*.substack.com",
+        "description": "Scrapes content from any Substack publication",
+        "example_url": "https://publication.substack.com"
+    }
+    
     return {
         "scrapers": scrapers_info,
-        "total_scrapers": len(URL_SCRAPER_MAP),
-        "supported_patterns": list(URL_SCRAPER_MAP.keys())
+        "total_scrapers": len(scrapers_info),
+        "supported_patterns": get_supported_patterns()
     }
