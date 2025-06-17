@@ -21,7 +21,6 @@ import os
 import tempfile
 import logging
 from urllib.parse import urlparse
-import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
