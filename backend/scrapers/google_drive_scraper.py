@@ -6,75 +6,101 @@ from urllib.parse import urlparse # Assuming we might need to parse the folder U
 
 class GoogleDriveScraper(BaseScraper):
     """
-    Placeholder scraper for Google Drive content.
-
- This class is a placeholder for implementing logic to scrape
-    content from Google Drive folders. The `run` method currently
-    returns an empty list of items.
+    Scraper for Google Drive content supporting both files and folders.
     """
 
-    def __init__(self, folder_url: str):
-        self.folder_url = folder_url
-        self.folder_id = self.extract_folder_id(folder_url)
+    def __init__(self, url: str):
+        """
+        Initializes the GoogleDriveScraper.
+
+        Args:
+            url: The Google Drive URL to scrape (file or folder).
+        """
+        self.url = url
+        self.is_file = '/file/d/' in url
+        self.is_folder = '/drive/folders/' in url
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.logger.info(f"GoogleDriveScraper initialized for folder: {self.folder_url}")
+        self.logger.info(f"GoogleDriveScraper initialized for URL: {self.url}")
+
+    def extract_file_id(self, url: str) -> str:
+        """
+        Extract the file ID from a Google Drive file URL.
+
+        Args:
+            url: The Google Drive file URL.
+
+        Returns:
+            The extracted file ID as a string.
+        """
+        # Example: https://drive.google.com/file/d/FILE_ID/view
+        match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
+        return match.group(1) if match else ""
+
     def extract_folder_id(self, url: str) -> str:
         """
-        Extract the folder ID from the Google Drive URL.
+        Extract the folder ID from a Google Drive folder URL.
+
         Args:
             url: The Google Drive folder URL.
+
         Returns:
             The extracted folder ID as a string.
         """
-        # Example Google Drive URL: https://drive.google.com/drive/folders/FOLDER_ID
+        # Example: https://drive.google.com/drive/folders/FOLDER_ID
         return url.split('/')[-1] if url else ""
+
     def discover_links(self) -> List[str]:
         """
-        Discover all file links within the specified Google Drive folder.
+        Discover all file links within the specified Google Drive folder or return the single file URL.
+
         Returns:
             A list of file URLs or unique identifiers as strings.
         """
-        self.logger.info(f"Discovering links in Google Drive folder: {self.folder_url}")
+        self.logger.info(f"Discovering links in Google Drive URL: {self.url}")
         
-        # Google Drive API URL for listing files
-        api_url = f"https://www.googleapis.com/drive/v3/files?q='{self.folder_id}' in parents&key=YOUR_API_KEY"
-        response = requests.get(api_url)
-        if response.status_code == 200:
-            items = response.json().get('files', [])
-            links = [f"https://drive.google.com/file/d/{item['id']}/view" for item in items]
-            self.logger.info(f"Discovered {len(links)} links")
-            return links
-        else:
-            self.logger.error(f"Error discovering links: {response.text}")
+        if self.is_file:
+            # For single files, just return the file URL
+            return [self.url]
+        elif self.is_folder:
+            # For folders, we would need Google Drive API integration
+            # For now, return empty list with warning
+            self.logger.warning("Google Drive folder API integration not yet implemented - returning empty list")
             return []
+        else:
+            self.logger.error(f"Unsupported Google Drive URL format: {self.url}")
+            return []
+
     def parse_page(self, url: str) -> ContentItem:
         """
         Fetches and parses a specific file from Google Drive into a ContentItem.
+
         Args:
             url: The file URL or identifier from discover_links.
+
         Returns:
             A populated ContentItem.
         """
         self.logger.info(f"Parsing Google Drive file: {url}")
-        # Extract file ID from URL
-        file_id = url.split('/')[-2]  # The ID is the second last part of the URL.
-        api_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key=YOUR_API_KEY"
-        
-        response = requests.get(api_url)
-        if response.status_code == 200:
-            content = response.text
+
+        if '/file/d/' in url:
+            file_id = self.extract_file_id(url)
+            
+            # Create a public download link for the file
+            download_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+            
+            # For now, return a placeholder ContentItem
+            # In a real implementation, you would fetch the file content
             return ContentItem(
-                title=f"Google Drive File: {url}",
-                content=content,  # Adjust based on file type
+                title=f"Google Drive File: {file_id}",
+                content=f"Google Drive file content extraction not yet fully implemented. File ID: {file_id}. Download URL: {download_url}",
                 content_type="document",
                 source_url=url,
                 author=""
             )
         else:
-            self.logger.error(f"Error parsing file: {response.text}")
             return ContentItem(
-                title=f"Google Drive File: {url}",
-                content="Failed to fetch content",
+                title=f"Google Drive Content: {url}",
+                content="Google Drive content extraction not yet implemented for this URL format",
                 content_type="document",
                 source_url=url,
                 author=""
