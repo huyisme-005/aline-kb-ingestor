@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from base_scraper import BaseScraper
 from models import ContentItem
+from utils.html2md import convert
 import logging
 
 logger = logging.getLogger(__name__)
@@ -142,18 +143,8 @@ class SubstackScraper(BaseScraper):
                 content_elem = soup.select_one(selector)
                 if content_elem:
                     body_html = str(content_elem)
-                    h = html2text.HTML2Text()
-                    h.ignore_links = False
-                    h.ignore_images = False
-                    h.body_width = 0
-                    h.unicode_snob = True
-                    h.escape_snob = True
-                    content = h.handle(body_html)
-                    # Clean up formatting
-                    import re
+                    content = convert(body_html)
                     content = content.strip()
-                    content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
-                    content = re.sub(r'(#{1,6}[^\n]*)\n([^\n#])', r'\1\n\n\2', content)
                     break
             
             if not content:
