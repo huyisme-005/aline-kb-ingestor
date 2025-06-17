@@ -31,6 +31,7 @@ export default function IngestForm() {
     "https://interviewing.io/guides",
     "https://nilmamano.com/blog/category/dsa",
     "https://drive.google.com/drive/folders/1AdUu4jh6DGwmCxfgnDQEMWWyo6_whPHJ",
+    "https://drive.google.com/file/d/1khqaQ5NvkefQmG9pAEPlopT9Vi6cJk_4/view",
     "https://shreycation.substack.com/"
   ];
 
@@ -131,7 +132,8 @@ export default function IngestForm() {
     if (url.includes('interviewing.io/learn')) return 'Interviewing.io Learn';
     if(url.includes('interviewing.io/guides')) return 'Interviewing.io Guide';
     if (url.includes('nilmamano.com')) return 'Nil Mamano DSA Blog';
-    if (url.includes('drive.google.com')) return 'Google Drive Folder';
+    if (url.includes('drive.google.com/drive/folders')) return 'Google Drive Folder';
+    if (url.includes('drive.google.com/file/d/')) return 'Google Drive File';
     if (url.includes('shreycation.substack.com')) return 'Shreycation Substack';
     return url;
   };
