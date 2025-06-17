@@ -143,7 +143,18 @@ class SubstackScraper(BaseScraper):
                 content_elem = soup.select_one(selector)
                 if content_elem:
                     body_html = str(content_elem)
-                    content = html2text.html2text(body_html)
+                    h = html2text.HTML2Text()
+                    h.ignore_links = False
+                    h.ignore_images = False
+                    h.body_width = 0
+                    h.unicode_snob = True
+                    h.escape_snob = True
+                    content = h.handle(body_html)
+                    # Clean up formatting
+                    import re
+                    content = content.strip()
+                    content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
+                    content = re.sub(r'(#{1,6}[^\n]*)\n([^\n#])', r'\1\n\n\2', content)
                     break
             
             if not content:
