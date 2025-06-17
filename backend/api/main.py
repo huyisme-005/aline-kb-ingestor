@@ -1,4 +1,14 @@
 """
+backend/scrapers/google_drive_scraper.py
+
+Placeholder scraper for handling Google Drive links.
+"""
+
+class GoogleDriveScraper:
+    def run(self, team_id: str):
+        # TODO: Implement Google Drive scraping logic here
+        return {"team_id": team_id, "items": []}
+"""
 @author HUy Le (huyisme-005)
 backend/api/main.py
 
