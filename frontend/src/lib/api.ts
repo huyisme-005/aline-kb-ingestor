@@ -51,7 +51,9 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
     'interviewing.io/blog',
     'interviewing.io/topics',
     'interviewing.io/learn',
-    'nilmamano.com/blog/category/dsa'
+    'nilmamano.com/blog/category/dsa',
+    'drive.google.com/drive/folders',
+    'shreycation.substack.com'
   ];
 
   const isSupported = supportedPatterns.some(pattern => url.includes(pattern));
@@ -61,6 +63,34 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
       valid: false,
       message: `Unsupported URL. Supported patterns: ${supportedPatterns.join(', ')}`
     };
+  }
+
+  // Additional validation for Google Drive URLs
+  if (url.includes('drive.google.com')) {
+    if (!url.includes('/drive/folders/')) {
+      return {
+        valid: false,
+        message: 'Google Drive URLs must be folder links (e.g., https://drive.google.com/drive/folders/FOLDER_ID)'
+      };
+    }
+  }
+
+  // Additional validation for Substack URLs
+  if (url.includes('substack.com')) {
+    try {
+      const urlObj = new URL(url);
+      if (!urlObj.hostname.endsWith('.substack.com')) {
+        return {
+          valid: false,
+          message: 'Substack URLs must be in format: https://publication.substack.com/'
+        };
+      }
+    } catch {
+      return {
+        valid: false,
+        message: 'Invalid Substack URL format'
+      };
+    }
   }
 
   return { valid: true };
@@ -106,7 +136,9 @@ export async function ingestUrl(teamId: string, url: string) {
     console.log('Fetching URL:', fetchUrl);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    // Longer timeout for Google Drive and Substack as they might take more time
+    const timeout = url.includes('drive.google.com') || url.includes('substack.com') ? 180000 : 60000;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
     
     const res = await fetch(fetchUrl, {
       method: "POST",
@@ -135,7 +167,7 @@ export async function ingestUrl(teamId: string, url: string) {
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        return { error: 'Request timed out. Please check if the backend server is running and the URL is accessible.' };
+        return { error: 'Request timed out. Please check if the backend server is running and the URL is accessible. Google Drive and Substack ingestion may take longer than usual.' };
       }
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
