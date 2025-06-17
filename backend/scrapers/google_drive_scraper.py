@@ -3,6 +3,7 @@ from models import ContentItem # Assuming ContentItem is defined in models.py
 from typing import List
 import logging
 from urllib.parse import urlparse # Assuming we might need to parse the folder URL
+import re
 
 class GoogleDriveScraper(BaseScraper):
     """
