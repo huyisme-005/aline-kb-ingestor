@@ -7,6 +7,7 @@ FastAPI application exposing ingestion endpoints for URLs and PDFs.
 
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from scrapers.interviewing_blog import InterviewingBlogScraper
 from scrapers.interviewing_topics import InterviewingTopicsScraper
 from scrapers.interviewing_guides import InterviewingGuidesScraper
@@ -20,6 +21,20 @@ app = FastAPI(
     title="Aline KB Ingestor",
     description="A tool to ingest technical content into a JSON knowledgebase for AI comment generation",
     version="0.1.0"
+)
+
+# Add CORS middleware to allow frontend connections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # Next.js frontend
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",  # Alternative port
+        "http://127.0.0.1:3001",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
