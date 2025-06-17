@@ -6,7 +6,6 @@ Scraper for the /learn#interview-guides section on interviewing.io.
 
 import requests
 from bs4 import BeautifulSoup
-import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
 
