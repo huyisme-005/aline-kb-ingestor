@@ -18,6 +18,21 @@ const getApiUrl = (): string => {
 const API_URL = getApiUrl();
 
 /**
+ * Check if backend is reachable
+ */
+const checkBackendHealth = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_URL}/health`, { 
+      method: 'GET',
+      timeout: 5000 
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * POST /ingest/url to queue a URL scrape.
  *
  * @param teamId - Unique team identifier
@@ -48,7 +63,9 @@ export async function ingestUrl(teamId: string, url: string) {
       signal: controller.signal,
       headers: {
         // Don't set Content-Type for FormData, let browser set it
-      }
+      },
+      // Add mode for CORS if needed
+      mode: 'cors'
     });
     
     clearTimeout(timeoutId);
@@ -72,9 +89,13 @@ export async function ingestUrl(teamId: string, url: string) {
       if (error.name === 'AbortError') {
         return { error: 'Request timed out. Please check if the backend server is running.' };
       }
-      if (error.message.includes('fetch')) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
-          error: `Failed to connect to server at ${API_URL}. Please ensure the backend is running and accessible.`,
+          error: `Cannot connect to backend server at ${API_URL}. Please ensure:
+1. Backend server is running
+2. Backend is accessible at ${API_URL}
+3. No firewall blocking the connection
+4. CORS is properly configured on backend`,
           details: error.message 
         };
       }
@@ -132,7 +153,9 @@ export async function ingestPdf(
       signal: controller.signal,
       headers: {
         // Don't set Content-Type for FormData, let browser set it
-      }
+      },
+      // Add mode for CORS if needed
+      mode: 'cors'
     });
     
     clearTimeout(timeoutId);
@@ -156,9 +179,13 @@ export async function ingestPdf(
       if (error.name === 'AbortError') {
         return { error: 'Request timed out. Please check if the backend server is running.' };
       }
-      if (error.message.includes('fetch')) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
-          error: `Failed to connect to server at ${API_URL}. Please ensure the backend is running and accessible.`,
+          error: `Cannot connect to backend server at ${API_URL}. Please ensure:
+1. Backend server is running  
+2. Backend is accessible at ${API_URL}
+3. No firewall blocking the connection
+4. CORS is properly configured on backend`,
           details: error.message 
         };
       }
