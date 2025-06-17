@@ -45,7 +45,7 @@ export default function IngestForm() {
       
       // Set a default team ID for localhost
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        setTeamId('localhost-team');
+        setTeamId('aline123');
       }
     }
   }, []);
