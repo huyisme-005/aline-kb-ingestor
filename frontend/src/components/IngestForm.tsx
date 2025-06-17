@@ -28,7 +28,9 @@ export default function IngestForm() {
     "https://interviewing.io/blog",
     "https://interviewing.io/topics", 
     "https://interviewing.io/learn",
-    "https://nilmamano.com/blog/category/dsa"
+    "https://nilmamano.com/blog/category/dsa",
+    "https://drive.google.com/drive/folders/1AdUu4jh6DGwmCxfgnDQEMWWyo6_whPHJ",
+    "https://shreycation.substack.com/"
   ];
 
   /**
@@ -119,10 +121,23 @@ export default function IngestForm() {
     setLink("");
   };
 
+  /**
+   * Get display name for URL
+   */
+  const getUrlDisplayName = (url: string) => {
+    if (url.includes('interviewing.io/blog')) return 'Interviewing.io Blog';
+    if (url.includes('interviewing.io/topics')) return 'Interviewing.io Topics';
+    if (url.includes('interviewing.io/learn')) return 'Interviewing.io Learn';
+    if (url.includes('nilmamano.com')) return 'Nil Mamano DSA Blog';
+    if (url.includes('drive.google.com')) return 'Google Drive Folder';
+    if (url.includes('shreycation.substack.com')) return 'Shreycation Substack';
+    return url;
+  };
+
   return (
     <div style={{ maxWidth: 800, margin: "auto", padding: "20px" }}>
       <h1>KB Ingestor</h1>
-      <p>Ingest content from supported websites or PDF files into your knowledge base.</p>
+      <p>Ingest content from supported websites, Google Drive folders, Substack publications, or PDF files into your knowledge base.</p>
       
       <form onSubmit={handleSubmit}>
         {/* Only show Team ID input when NOT on localhost */}
@@ -143,7 +158,7 @@ export default function IngestForm() {
         
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-            Website URL
+            Website URL / Google Drive / Substack
           </label>
           <input
             value={url}
@@ -158,26 +173,42 @@ export default function IngestForm() {
             }}
           />
           <div style={{ fontSize: "14px", color: "#666" }}>
-            <strong>Supported URLs:</strong>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "5px" }}>
+            <strong>Supported Sources:</strong>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
               {supportedUrls.map((supportedUrl, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setExampleUrl(supportedUrl)}
                   style={{
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
+                    padding: "8px 12px",
+                    fontSize: "13px",
+                    backgroundColor: "#f8f9fa",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "6px",
                     cursor: "pointer",
-                    textDecoration: "none"
+                    textDecoration: "none",
+                    textAlign: "left",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    transition: "background-color 0.2s",
+                    ':hover': {
+                      backgroundColor: "#e9ecef"
+                    }
                   }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = "#e9ecef"}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = "#f8f9fa"}
                 >
-                  {supportedUrl}
+                  <span style={{ fontWeight: "500" }}>{getUrlDisplayName(supportedUrl)}</span>
+                  <span style={{ fontSize: "11px", color: "#6c757d", fontFamily: "monospace" }}>
+                    {supportedUrl.length > 50 ? `${supportedUrl.substring(0, 50)}...` : supportedUrl}
+                  </span>
                 </button>
               ))}
+            </div>
+            <div style={{ marginTop: "10px", fontSize: "12px", color: "#6c757d" }}>
+              <strong>New Sources:</strong> Google Drive folders and Substack publications are now supported!
             </div>
           </div>
         </div>
@@ -247,6 +278,8 @@ export default function IngestForm() {
         <h3>Instructions:</h3>
         <ul>
           <li>For <strong>URL ingestion</strong>: Use one of the supported URL patterns above</li>
+          <li>For <strong>Google Drive</strong>: Use the full folder URL (must be publicly accessible)</li>
+          <li>For <strong>Substack</strong>: Use the publication's main URL</li>
           <li>For <strong>PDF ingestion</strong>: Upload a PDF file directly (max recommended: 10MB)</li>
           <li>Make sure your backend server is running: <code>cd backend && python -m uvicorn api.main:app --reload</code></li>
         </ul>
