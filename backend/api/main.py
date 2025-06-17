@@ -16,6 +16,12 @@ from importers.pdf_importer import extract_chapters
 from api.tasks import ingest_payload
 import os
 import tempfile
+import logging
+from urllib.parse import urlparse
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Aline KB Ingestor",
@@ -31,11 +37,36 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",  # Alternative port
         "http://127.0.0.1:3001",
+        "http://localhost:8080",  # Alternative frontend port
+        "http://127.0.0.1:8080",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Supported URL patterns and their corresponding scrapers
+URL_SCRAPER_MAP = {
+    "interviewing.io/blog": InterviewingBlogScraper,
+    "interviewing.io/topics": InterviewingTopicsScraper,
+    "interviewing.io/learn": InterviewingGuidesScraper,
+    "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
+}
+
+def get_scraper_for_url(url: str):
+    """
+    Determine the appropriate scraper based on URL pattern.
+    
+    Args:
+        url: The URL to check
+        
+    Returns:
+        Scraper class if supported, None otherwise
+    """
+    for pattern, scraper_class in URL_SCRAPER_MAP.items():
+        if pattern in url:
+            return scraper_class
+    return None
 
 @app.get("/")
 async def root():
@@ -48,17 +79,14 @@ async def root():
     return {
         "message": "Aline KB Ingestor API",
         "version": "0.1.0",
+        "status": "healthy",
         "endpoints": {
             "ingest_url": "/ingest/url",
             "ingest_pdf": "/ingest/pdf",
-            "health": "/health"
+            "health": "/health",
+            "scrapers": "/scrapers"
         },
-        "supported_sources": [
-            "interviewing.io/blog",
-            "interviewing.io/topics", 
-            "interviewing.io/learn",
-            "nilmamano.com/blog/category/dsa"
-        ]
+        "supported_sources": list(URL_SCRAPER_MAP.keys())
     }
 
 @app.get("/health")
@@ -69,7 +97,11 @@ async def health_check():
     Returns:
         API health status.
     """
-    return {"status": "healthy", "service": "aline-kb-ingestor"}
+    return {
+        "status": "healthy", 
+        "service": "aline-kb-ingestor",
+        "supported_patterns": list(URL_SCRAPER_MAP.keys())
+    }
 
 @app.post("/ingest/url")
 async def ingest_url(
@@ -92,42 +124,72 @@ async def ingest_url(
         JSON payload with team_id and scraped items.
     """
     try:
-        # Determine scraper based on URL pattern
-        if "interviewing.io/blog" in source_url:
-            scraper = InterviewingBlogScraper()
-        elif "interviewing.io/topics" in source_url:
-            scraper = InterviewingTopicsScraper()
-        elif "interviewing.io/learn" in source_url:
-            scraper = InterviewingGuidesScraper()
-        elif "nilmamano.com/blog/category/dsa" in source_url:
-            scraper = NilMamanoDSAScraper()
-        else:
+        logger.info(f"Ingesting URL: {source_url} for team: {team_id}")
+        
+        # Validate URL format
+        try:
+            parsed_url = urlparse(source_url)
+            if not parsed_url.scheme or not parsed_url.netloc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid URL format. URL must include protocol (http/https)"
+                )
+        except Exception as e:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported URL: {source_url}. Supported domains: interviewing.io, nilmamano.com"
+                detail=f"Invalid URL format: {str(e)}"
+            )
+        
+        # Determine scraper based on URL pattern
+        scraper_class = get_scraper_for_url(source_url)
+        
+        if not scraper_class:
+            supported_patterns = list(URL_SCRAPER_MAP.keys())
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported URL: {source_url}. Supported patterns: {', '.join(supported_patterns)}"
             )
 
-        # Run scraper and get payload
+        # Initialize and run scraper
+        scraper = scraper_class()
+        logger.info(f"Using scraper: {scraper_class.__name__}")
+        
         payload = scraper.run(team_id)
         
-        if not payload["items"]:
+        if not payload or not payload.get("items"):
             return JSONResponse(
                 status_code=200,
-                content={"team_id": team_id, "items": [], "message": "No content found to ingest"}
+                content={
+                    "team_id": team_id, 
+                    "items": [], 
+                    "message": "No content found to ingest",
+                    "source_url": source_url
+                }
             )
 
         # Queue background task for ingestion (optional)
         if background_tasks:
             background_tasks.add_task(ingest_payload, payload)
         
-        # Return the actual payload instead of just status
+        logger.info(f"Successfully ingested {len(payload['items'])} items")
+        
+        # Return the actual payload
         return {
             "team_id": team_id,
-            "items": payload["items"]
+            "items": payload["items"],
+            "source_url": source_url,
+            "message": f"Successfully ingested {len(payload['items'])} items"
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+        logger.error(f"Ingestion failed for {source_url}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Ingestion failed: {str(e)}"
+        )
 
 @app.post("/ingest/pdf")
 async def ingest_pdf(
@@ -149,18 +211,32 @@ async def ingest_pdf(
         JSON payload with team_id and extracted items.
     """
     try:
+        logger.info(f"Ingesting PDF: {file.filename} for team: {team_id}")
+        
         # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=400, 
+                detail="Only PDF files are supported"
+            )
+        
+        # Check file size (optional - set a reasonable limit)
+        content = await file.read()
+        file_size_mb = len(content) / (1024 * 1024)
+        if file_size_mb > 50:  # 50MB limit
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large: {file_size_mb:.1f}MB. Maximum size: 50MB"
+            )
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            content = await file.read()
             tmp_file.write(content)
             tmp_path = tmp_file.name
         
         try:
             # Extract chapters from PDF
+            logger.info(f"Extracting {num_chapters} chapters from PDF")
             items = extract_chapters(tmp_path, num_chapters)
             
             # Create payload
@@ -172,25 +248,44 @@ async def ingest_pdf(
             if not payload["items"]:
                 return JSONResponse(
                     status_code=200,
-                    content={"team_id": team_id, "items": [], "message": "No chapters found in PDF"}
+                    content={
+                        "team_id": team_id, 
+                        "items": [], 
+                        "message": "No chapters found in PDF",
+                        "filename": file.filename
+                    }
                 )
             
             # Queue background task for ingestion (optional)
             if background_tasks:
                 background_tasks.add_task(ingest_payload, payload)
             
-            # Return the actual payload instead of just status
+            logger.info(f"Successfully extracted {len(payload['items'])} chapters")
+            
+            # Return the actual payload
             return {
                 "team_id": team_id,
-                "items": payload["items"]
+                "items": payload["items"],
+                "filename": file.filename,
+                "message": f"Successfully extracted {len(payload['items'])} chapters"
             }
             
         finally:
             # Clean up temporary file
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.warning(f"Failed to clean up temp file {tmp_path}: {e}")
             
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF ingestion failed: {str(e)}")
+        logger.error(f"PDF ingestion failed for {file.filename}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"PDF ingestion failed: {str(e)}"
+        )
 
 @app.get("/scrapers")
 async def list_scrapers():
@@ -200,27 +295,18 @@ async def list_scrapers():
     Returns:
         Dictionary of available scrapers and their details.
     """
-    return {
-        "scrapers": {
-            "interviewing_blog": {
-                "class": "InterviewingBlogScraper",
-                "pattern": "interviewing.io/blog",
-                "description": "Scrapes blog posts from interviewing.io"
-            },
-            "interviewing_topics": {
-                "class": "InterviewingTopicsScraper", 
-                "pattern": "interviewing.io/topics",
-                "description": "Scrapes company guides from interviewing.io"
-            },
-            "interviewing_guides": {
-                "class": "InterviewingGuidesScraper",
-                "pattern": "interviewing.io/learn", 
-                "description": "Scrapes interview guides from interviewing.io"
-            },
-            "nil_mamano_dsa": {
-                "class": "NilMamanoDSAScraper",
-                "pattern": "nilmamano.com/blog/category/dsa",
-                "description": "Scrapes DS&A posts from Nil Mamano's blog"
-            }
+    scrapers_info = {}
+    
+    for pattern, scraper_class in URL_SCRAPER_MAP.items():
+        scrapers_info[pattern.replace(".", "_").replace("/", "_")] = {
+            "class": scraper_class.__name__,
+            "pattern": pattern,
+            "description": f"Scrapes content from {pattern}",
+            "example_url": f"https://{pattern}"
         }
+    
+    return {
+        "scrapers": scrapers_info,
+        "total_scrapers": len(URL_SCRAPER_MAP),
+        "supported_patterns": list(URL_SCRAPER_MAP.keys())
     }
