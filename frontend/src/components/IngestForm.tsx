@@ -19,6 +19,17 @@ export default function IngestForm() {
   const [link, setLink] = useState("");
   const [message, setMessage] = useState("");
   const [isLocalhost, setIsLocalhost] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  /**
+   * Supported URL patterns for easy reference
+   */
+  const supportedUrls = [
+    "https://interviewing.io/blog",
+    "https://interviewing.io/topics", 
+    "https://interviewing.io/learn",
+    "https://nilmamano.com/blog/category/dsa"
+  ];
 
   /**
    * Check if running on localhost
@@ -40,64 +51,206 @@ export default function IngestForm() {
    */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setMessage("Submitting…");
-    let res;
-    if (url) {
-      res = await ingestUrl(teamId, url);
-    } else {
-      res = await ingestPdf(teamId, file || undefined, link);
+    setIsLoading(true);
+    setMessage("Processing...");
+    
+    try {
+      let res;
+      if (url.trim()) {
+        console.log('Submitting URL:', url);
+        res = await ingestUrl(teamId, url.trim());
+      } else if (file) {
+        console.log('Submitting PDF file:', file.name);
+        res = await ingestPdf(teamId, file, link.trim() || undefined);
+      } else {
+        setMessage("Please provide either a URL or upload a PDF file.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Format the response for better readability
+      if (res.error) {
+        setMessage(`❌ Error: ${res.error}${res.details ? `\n\nDetails: ${res.details}` : ''}`);
+      } else if (res.items && Array.isArray(res.items)) {
+        setMessage(`✅ Success! Ingested ${res.items.length} items for team: ${res.team_id}\n\n${JSON.stringify(res, null, 2)}`);
+      } else {
+        setMessage(`✅ Response:\n${JSON.stringify(res, null, 2)}`);
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+      setMessage(`❌ Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
-    setMessage(JSON.stringify(res, null, 2));
+  };
+
+  /**
+   * Handle URL input changes and provide feedback
+   */
+  const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl);
+    
+    // Clear file when URL is entered
+    if (newUrl.trim() && file) {
+      setFile(null);
+    }
+  };
+
+  /**
+   * Handle file input changes
+   */
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] ?? null;
+    setFile(selectedFile);
+    
+    // Clear URL when file is selected
+    if (selectedFile && url.trim()) {
+      setUrl("");
+    }
+  };
+
+  /**
+   * Set example URL
+   */
+  const setExampleUrl = (exampleUrl: string) => {
+    setUrl(exampleUrl);
+    setFile(null);
+    setLink("");
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 600, margin: "auto" }}>
+    <div style={{ maxWidth: 800, margin: "auto", padding: "20px" }}>
       <h1>KB Ingestor</h1>
+      <p>Ingest content from supported websites or PDF files into your knowledge base.</p>
       
-      {/* Only show Team ID input when NOT on localhost */}
-      {!isLocalhost && (
-        <>
-          <label>
-            Team ID
+      <form onSubmit={handleSubmit}>
+        {/* Only show Team ID input when NOT on localhost */}
+        {!isLocalhost && (
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+              Team ID *
+            </label>
             <input
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               required
+              style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+              placeholder="Enter your team identifier"
             />
+          </div>
+        )}
+        
+        <div style={{ marginBottom: "20px" }}>
+          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            Website URL
           </label>
-          <hr />
-        </>
+          <input
+            value={url}
+            onChange={handleUrlChange}
+            placeholder="Enter a supported URL"
+            style={{ 
+              width: "100%", 
+              padding: "8px", 
+              border: "1px solid #ccc", 
+              borderRadius: "4px",
+              marginBottom: "10px"
+            }}
+          />
+          <div style={{ fontSize: "14px", color: "#666" }}>
+            <strong>Supported URLs:</strong>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "5px" }}>
+              {supportedUrls.map((supportedUrl, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setExampleUrl(supportedUrl)}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    backgroundColor: "#f0f0f0",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    textDecoration: "none"
+                  }}
+                >
+                  {supportedUrl}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div style={{ textAlign: "center", margin: "20px 0", fontSize: "16px", fontWeight: "bold" }}>
+          — OR —
+        </div>
+        
+        <div style={{ marginBottom: "20px" }}>
+          <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
+            PDF File
+          </label>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileChange}
+            style={{ 
+              width: "100%", 
+              padding: "8px", 
+              border: "1px solid #ccc", 
+              borderRadius: "4px",
+              marginBottom: "5px"
+            }}
+          />
+          <div style={{ fontSize: "12px", color: "#666" }}>
+            Upload a PDF file to extract content chapters
+          </div>
+        </div>
+        
+        <button 
+          type="submit" 
+          disabled={isLoading || (!url.trim() && !file)}
+          style={{
+            width: "100%",
+            padding: "12px",
+            backgroundColor: isLoading || (!url.trim() && !file) ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            fontSize: "16px",
+            cursor: isLoading || (!url.trim() && !file) ? "not-allowed" : "pointer",
+            marginBottom: "20px"
+          }}
+        >
+          {isLoading ? "Processing..." : "Ingest Content"}
+        </button>
+      </form>
+      
+      {message && (
+        <div style={{
+          marginTop: "20px",
+          padding: "15px",
+          backgroundColor: message.startsWith("❌") ? "#ffebee" : "#e8f5e8",
+          border: `1px solid ${message.startsWith("❌") ? "#ffcdd2" : "#c8e6c8"}`,
+          borderRadius: "4px",
+          whiteSpace: "pre-wrap",
+          fontFamily: "monospace",
+          fontSize: "14px",
+          maxHeight: "400px",
+          overflow: "auto"
+        }}>
+          {message}
+        </div>
       )}
       
-      <label>
-        Blog/Guide URL
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://interviewing.io/blog"
-        />
-      </label>
-      <p>— OR —</p>
-      <label>
-        PDF File
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setFile(e.target.files?.[0] ?? null)
-          }
-        />
-      </label>
-      <label>
-        PDF Drive Link
-        <input
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          placeholder="https://drive.google.com/…"
-        />
-      </label>
-      <button type="submit">Ingest</button>
-      {message && <pre>{message}</pre>}
-    </form>
+      <div style={{ marginTop: "30px", fontSize: "12px", color: "#666" }}>
+        <h3>Instructions:</h3>
+        <ul>
+          <li>For <strong>URL ingestion</strong>: Use one of the supported URL patterns above</li>
+          <li>For <strong>PDF ingestion</strong>: Upload a PDF file directly (max recommended: 10MB)</li>
+          <li>Make sure your backend server is running: <code>cd backend && python -m uvicorn api.main:app --reload</code></li>
+        </ul>
+      </div>
+    </div>
   );
 }
