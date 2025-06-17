@@ -28,6 +28,7 @@ export default function IngestForm() {
     "https://interviewing.io/blog",
     "https://interviewing.io/topics", 
     "https://interviewing.io/learn",
+    "https://interviewing.io/guides",
     "https://nilmamano.com/blog/category/dsa",
     "https://drive.google.com/drive/folders/1AdUu4jh6DGwmCxfgnDQEMWWyo6_whPHJ",
     "https://shreycation.substack.com/"

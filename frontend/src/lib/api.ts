@@ -51,6 +51,7 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
     'interviewing.io/blog',
     'interviewing.io/topics', 
     'interviewing.io/learn',
+    'interviewing.io/guides', // Add this line to support /guides/ URLs
     'nilmamano.com/blog/category/dsa',
     'drive.google.com/drive/folders',
     '.substack.com' // Updated to match any Substack publication
