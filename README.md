@@ -63,3 +63,99 @@ Provide either a Blog/Guide URL or upload a PDF / paste a Drive link
 
 
 Click Ingest and monitor the JSON output
+
+Frontend frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+
+Development
+Backend only
+cd backend
+pip install -r ../requirements.txt
+uvicorn api.main:app --reload --port 8000
+celery -A api.tasks worker --loglevel=info
+
+
+Frontend only
+
+
+cd frontend
+npm install
+npm run dev
+
+
+
+Testing
+Python tests (uses pytest, vcrpy)
+
+pytest --cov=backend
+
+
+Frontend sanity
+
+cd frontend
+npm run lint   # if configured
+
+
+
+Code Style
+Python: black, isort, flake8
+
+
+TypeScript/React: follow Next.js defaults; add eslint if desired
+
+
+
+Project Structure
+
+aline-kb-ingestor/
+├── .env.example
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+├── pyproject.toml
+├── README.md
+│
+├── backend/
+│   ├── models.py
+│   ├── base_scraper.py
+│   ├── celeryconfig.py
+│   ├── utils/
+│   ├── importers/
+│   ├── scrapers/
+│   ├── api/
+│   └── tests/
+│
+└── frontend/
+    ├── .env.local.example
+    ├── package.json
+    ├── tsconfig.json
+    ├── next.config.js
+    ├── public/
+    ├── styles/
+    └── src/
+
+
+Extending
+Add a new scraper: subclass backend/base_scraper.py
+
+
+Wire into API: update backend/api/main.py to detect your new source URL
+
+
+Test: add VCR‑backed tests under backend/tests/
+
+
+
+Deployment
+Docker Compose for dev
+
+
+AWS ECS/Fargate, Heroku, or Render for production
+
+
+Ensure your REDIS_URL and API_URL are set in your deployment environment
+
+
+Happy ingesting! 🎉
+
