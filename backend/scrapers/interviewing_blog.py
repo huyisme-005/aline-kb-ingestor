@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
+from utils.html2md import convert
 
 BASE = "https://interviewing.io"
 
