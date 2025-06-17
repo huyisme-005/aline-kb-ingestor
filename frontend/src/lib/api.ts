@@ -53,10 +53,21 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
     'interviewing.io/learn',
     'nilmamano.com/blog/category/dsa',
     'drive.google.com/drive/folders',
-    'substack.com' // Changed from 'shreycation.substack.com' to support all Substack publications
+    '.substack.com' // Updated to match any Substack publication
   ];
 
-  const isSupported = supportedPatterns.some(pattern => url.includes(pattern));
+  const isSupported = supportedPatterns.some(pattern => {
+    if (pattern === '.substack.com') {
+      // Special handling for Substack URLs
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname.endsWith('.substack.com');
+      } catch {
+        return false;
+      }
+    }
+    return url.includes(pattern);
+  });
   
   if (!isSupported) {
     return {
@@ -83,6 +94,13 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
         return {
           valid: false,
           message: 'Substack URLs must be in format: https://publication.substack.com/'
+        };
+      }
+      // Check if it's the base URL (not a specific post)
+      if (urlObj.pathname.startsWith('/p/')) {
+        return {
+          valid: false,
+          message: 'Please use the main Substack URL (e.g., https://publication.substack.com/) not a specific post URL'
         };
       }
     } catch {
@@ -128,7 +146,7 @@ export async function ingestUrl(teamId: string, url: string) {
     if (!isHealthy) {
       return {
         error: `Backend server is not responding at ${API_URL}. Please ensure:
-1. Backend server is running (python -m uvicorn main:app --reload)
+1. Backend server is running (cd backend && python -m uvicorn api.main:app --reload)
 2. Backend is accessible at ${API_URL}
 3. No firewall blocking the connection`
       };
@@ -161,6 +179,17 @@ export async function ingestUrl(teamId: string, url: string) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error('Error response:', errorText);
+      
+      // Try to parse JSON error for better error messages
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          throw new Error(errorJson.detail);
+        }
+      } catch (parseError) {
+        // If not JSON, use the raw text
+      }
+      
       throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
@@ -173,7 +202,7 @@ export async function ingestUrl(teamId: string, url: string) {
     
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        return { error: 'Request timed out. Please check if the backend server is running and the URL is accessible. Google Drive and Substack ingestion may take longer than usual.' };
+        return { error: 'Request timed out. Please check if the backend server is running and the URL is accessible. Substack ingestion may take longer than usual.' };
       }
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         return { 
@@ -258,6 +287,17 @@ export async function ingestPdf(
     if (!res.ok) {
       const errorText = await res.text();
       console.error('Error response:', errorText);
+      
+      // Try to parse JSON error for better error messages
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.detail) {
+          throw new Error(errorJson.detail);
+        }
+      } catch (parseError) {
+        // If not JSON, use the raw text
+      }
+      
       throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`);
     }
     
@@ -267,20 +307,5 @@ export async function ingestPdf(
     
   } catch (error) {
     console.error('Error in ingestPdf:', error);
-    
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        return { error: 'Request timed out. Large PDF files may take longer to process.' };
-      }
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        return { 
-          error: `Cannot connect to backend server at ${API_URL}. Please ensure the backend server is running.`,
-          details: error.message 
-        };
-      }
-      return { error: error.message };
-    }
-    
-    return { error: 'An unknown error occurred' };
   }
 }
