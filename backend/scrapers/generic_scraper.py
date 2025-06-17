@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from base_scraper import BaseScraper
 from models import ContentItem
 from urllib.parse import urljoin, urlparse
+from utils.html2md import convert
 import logging
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,8 @@ class GenericScraper(BaseScraper):
         content_element = None
         for selector in [
             "article", "main", ".content", ".post-content", ".article-content",
-            ".entry-content", "#content", ".main-content", ".post-body"
+            ".entry-content", "#content", ".main-content", ".post-body",
+            ".container", ".wrapper", ".page-content", ".text-content"
         ]:
             element = soup.select_one(selector)
             if element:
@@ -152,28 +154,15 @@ class GenericScraper(BaseScraper):
                     unwanted.decompose()
         
         if content_element:
-            # Convert to markdown
+            # Convert to markdown using our improved converter
             html_content = str(content_element)
-            h = html2text.HTML2Text()
-            h.ignore_links = False
-            h.ignore_images = False
-            h.body_width = 0
-            h.unicode_snob = True
-            h.escape_snob = True
-            markdown = h.handle(html_content)
-            # Clean up and normalize whitespace while preserving structure
+            markdown = convert(html_content)
             content = markdown.strip()
-            # Replace multiple consecutive newlines with double newlines for proper paragraphs
-            import re
-            content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
-            # Ensure proper spacing after headers and lists
-            content = re.sub(r'(#{1,6}[^\n]*)\n([^\n#])', r'\1\n\n\2', content)
-            content = re.sub(r'(\*[^\n]*)\n([^\n\*\s])', r'\1\n\n\2', content)
             
             # If content is too short, try to get more text
             if len(content) < 100:
                 # Fallback: get all paragraph text
-                paragraphs = soup.find_all(['p', 'div', 'span'])
+                paragraphs = soup.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
                 text_content = []
                 for p in paragraphs:
                     text = p.get_text(strip=True)
@@ -181,7 +170,7 @@ class GenericScraper(BaseScraper):
                         text_content.append(text)
                 
                 if text_content:
-                    content = '\n\n'.join(text_content[:10])  # Limit to first 10 meaningful paragraphs
+                    content = '\n\n'.join(text_content[:15])  # Get more content
             
             return content if content else "Could not extract meaningful content from this page."
         
