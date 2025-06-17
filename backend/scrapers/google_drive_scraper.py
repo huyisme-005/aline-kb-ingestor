@@ -14,72 +14,71 @@ class GoogleDriveScraper(BaseScraper):
     """
 
     def __init__(self, folder_url: str):
-        """
-        Initializes the GoogleDriveScraper.
-
-        Args:
-            folder_url: The Google Drive folder URL to scrape.
-        """
         self.folder_url = folder_url
+        self.folder_id = self.extract_folder_id(folder_url)
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.logger.info(f"GoogleDriveScraper initialized for folder: {self.folder_url}")
-
-    def run(self, team_id: str) -> dict:
+    def extract_folder_id(self, url: str) -> str:
         """
-        Execute full scrape for the Google Drive folder.
-
+        Extract the folder ID from the Google Drive URL.
         Args:
-            team_id: The team/user ID to attach to the content.
-
+            url: The Google Drive folder URL.
         Returns:
-            A dict matching the KBPayload model.
+            The extracted folder ID as a string.
         """
-        self.logger.info(f"Running Google Drive scraper for team: {team_id}, folder: {self.folder_url}")
-        # The run method in BaseScraper already handles discovering links and parsing pages
-        # We just need to ensure discover_links and parse_page are implemented below.
-        return super().run(team_id) # Call the run method of the base class
-
+        # Example Google Drive URL: https://drive.google.com/drive/folders/FOLDER_ID
+        return url.split('/')[-1] if url else ""
     def discover_links(self) -> List[str]:
-
         """
-        Discover all file links (or identifiers) within the specified Google Drive folder.
-
-        This method should interact with the Google Drive API to list files.
-
+        Discover all file links within the specified Google Drive folder.
         Returns:
             A list of file URLs or unique identifiers as strings.
         """
-
         self.logger.info(f"Discovering links in Google Drive folder: {self.folder_url}")
-        # TODO: Implement actual Google Drive scraping logic here
-        # Example: use google-api-python-client to list files in self.folder_url
-        # For now, returning a placeholder list. Replace with actual file identifiers/links.
-        #Discover all source URLs to scrape within the Google Drive folder.
-
-        #Returns:
-            #A list of file URLs (or identifiers) as strings.
-        """
-        # TODO: Implement logic to list files in the Google Drive folder
-        print("Discovering links in Google Drive (placeholder)")
-        # In a real implementation, this would return a list of file IDs or direct links
-        # Example placeholder:
-        # return ["google_drive_file_id_1", "google_drive_file_id_2"]
-        return []  # Return empty list for now
-        """
-
+        
+        # Google Drive API URL for listing files
+        api_url = f"https://www.googleapis.com/drive/v3/files?q='{self.folder_id}' in parents&key=YOUR_API_KEY"
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            items = response.json().get('files', [])
+            links = [f"https://drive.google.com/file/d/{item['id']}/view" for item in items]
+            self.logger.info(f"Discovered {len(links)} links")
+            return links
+        else:
+            self.logger.error(f"Error discovering links: {response.text}")
+            return []
     def parse_page(self, url: str) -> ContentItem:
         """
         Fetches and parses a specific file from Google Drive into a ContentItem.
-
         Args:
             url: The file URL or identifier from discover_links.
-
         Returns:
             A populated ContentItem.
         """
-        # TODO: Implement logic to fetch and parse content from a Google Drive file
-        # This involves downloading the file content using the Google Drive API based on the provided 'url' (which might be a file ID)
-        print(f"Parsing Google Drive file: {url} (placeholder)")
+        self.logger.info(f"Parsing Google Drive file: {url}")
+        # Extract file ID from URL
+        file_id = url.split('/')[-2]  # The ID is the second last part of the URL.
+        api_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media&key=YOUR_API_KEY"
+        
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            content = response.text
+            return ContentItem(
+                title=f"Google Drive File: {url}",
+                content=content,  # Adjust based on file type
+                content_type="document",
+                source_url=url,
+                author=""
+            )
+        else:
+            self.logger.error(f"Error parsing file: {response.text}")
+            return ContentItem(
+                title=f"Google Drive File: {url}",
+                content="Failed to fetch content",
+                content_type="document",
+                source_url=url,
+                author=""
+            )
 if __name__ == '__main__':
     # Example usage of the placeholder scraper
     scraper = GoogleDriveScraper()
