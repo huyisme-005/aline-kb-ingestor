@@ -68,37 +68,38 @@ Frontend frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 
 
-Development
-Backend only
+**Development**
+
+1. Backend only
+
 cd backend
 pip install -r ../requirements.txt
 uvicorn api.main:app --reload --port 8000
 celery -A api.tasks worker --loglevel=info
 
 
-Frontend only
-
+2. Frontend only
 
 cd frontend
 npm install
 npm run dev
 
 
+3. Testing
 
-Testing
 Python tests (uses pytest, vcrpy)
 
 pytest --cov=backend
 
 
-Frontend sanity
+4. Frontend sanity
 
 cd frontend
 npm run lint   # if configured
 
 
 
-Code Style
+5. Code Style
 Python: black, isort, flake8
 
 
@@ -106,7 +107,7 @@ TypeScript/React: follow Next.js defaults; add eslint if desired
 
 
 
-Project Structure
+6. Project Structure
 
 aline-kb-ingestor/
 ├── .env.example
@@ -136,7 +137,7 @@ aline-kb-ingestor/
     └── src/
 
 
-Extending
+7. Extending
 Add a new scraper: subclass backend/base_scraper.py
 
 
@@ -147,7 +148,7 @@ Test: add VCR‑backed tests under backend/tests/
 
 
 
-Deployment
+8. Deployment
 Docker Compose for dev
 
 
