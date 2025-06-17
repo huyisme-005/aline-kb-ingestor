@@ -6,9 +6,9 @@ Scraper for Nil Mamano's DS&A category blog posts.
 
 import requests
 from bs4 import BeautifulSoup
-import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
+from utils.html2md import convert
 
 class NilMamanoDSAScraper(BaseScraper):
     """
@@ -40,7 +40,7 @@ class NilMamanoDSAScraper(BaseScraper):
         soup = BeautifulSoup(resp.text, "html.parser")
         title = soup.select_one("h1.entry-title").get_text(strip=True)
         body_html = str(soup.select_one(".entry-content"))
-        markdown = html2text.html2text(body_html)
+        markdown = convert(body_html)
         return ContentItem(
             title=title,
             content=markdown,
