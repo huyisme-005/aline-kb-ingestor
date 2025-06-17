@@ -6,7 +6,6 @@ Scraper for the interviewing.io blog section.
 
 import requests
 from bs4 import BeautifulSoup
-import html2text
 from base_scraper import BaseScraper
 from models import ContentItem
 from utils.html2md import convert
@@ -44,7 +43,7 @@ class InterviewingBlogScraper(BaseScraper):
         author_tag = soup.select_one(".post-author")
         author = author_tag.get_text(strip=True) if author_tag else ""
         body_html = str(soup.select_one(".post-content"))
-        markdown = html2text.html2text(body_html)
+        markdown = convert(body_html)
         return ContentItem(
             title=title,
             content=markdown,
