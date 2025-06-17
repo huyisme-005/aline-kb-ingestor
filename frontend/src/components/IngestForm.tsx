@@ -129,6 +129,7 @@ export default function IngestForm() {
     if (url.includes('interviewing.io/blog')) return 'Interviewing.io Blog';
     if (url.includes('interviewing.io/topics')) return 'Interviewing.io Topics';
     if (url.includes('interviewing.io/learn')) return 'Interviewing.io Learn';
+    if(url.includes('interviewing.io/guides')) return 'Interviewing.io Guide';
     if (url.includes('nilmamano.com')) return 'Nil Mamano DSA Blog';
     if (url.includes('drive.google.com')) return 'Google Drive Folder';
     if (url.includes('shreycation.substack.com')) return 'Shreycation Substack';
