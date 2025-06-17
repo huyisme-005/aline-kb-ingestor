@@ -17,11 +17,20 @@ class GoogleDriveScraper(BaseScraper):
         Args:
             url: The Google Drive URL to scrape (file or folder).
         """
-        self.url = url
-        self.is_file = '/file/d/' in url
-        self.is_folder = '/drive/folders/' in url
+        self.url = url if url else ""
+        self.is_file = '/file/d/' in self.url if self.url else False
+        self.is_folder = '/drive/folders/' in self.url if self.url else False
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.logger.info(f"GoogleDriveScraper initialized for URL: {self.url}")
+        if self.url:
+            self.logger.info(f"GoogleDriveScraper initialized for URL: {self.url}")
+    
+    def run(self, team_id: str) -> dict:
+        """
+        Override run method to handle Google Drive URLs.
+        """
+        if not self.url:
+            return {"team_id": team_id, "items": []}
+        return super().run(team_id)
 
     def extract_file_id(self, url: str) -> str:
         """
@@ -106,6 +115,7 @@ class GoogleDriveScraper(BaseScraper):
                 source_url=url,
                 author=""
             )
+
 if __name__ == '__main__':
     # Example usage of the placeholder scraper
     scraper = GoogleDriveScraper()
