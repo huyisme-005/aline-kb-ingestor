@@ -68,7 +68,7 @@ class BaseScraper(ABC):
                 try:
                     logger.info(f"Parsing URL {i+1}/{len(urls)}: {url}")
                     item = self.parse_page(url)
-                    item.user_id = team_id
+                    item.user_id = ""
                     items.append(item)
                     logger.info(f"Successfully parsed: {item.title}")
                 except Exception as e:
