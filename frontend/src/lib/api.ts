@@ -51,10 +51,11 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
     'interviewing.io/blog',
     'interviewing.io/topics', 
     'interviewing.io/learn',
-    'interviewing.io/guides', // Add this line to support /guides/ URLs
+    'interviewing.io/guides',
     'nilmamano.com/blog/category/dsa',
     'drive.google.com/drive/folders',
-    '.substack.com' // Updated to match any Substack publication
+    'drive.google.com/file/d/',
+    '.substack.com'
   ];
 
   const isSupported = supportedPatterns.some(pattern => {
@@ -79,10 +80,10 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
 
   // Additional validation for Google Drive URLs
   if (url.includes('drive.google.com')) {
-    if (!url.includes('/drive/folders/')) {
+    if (!url.includes('/drive/folders/') && !url.includes('/file/d/')) {
       return {
         valid: false,
-        message: 'Google Drive URLs must be folder links (e.g., https://drive.google.com/drive/folders/FOLDER_ID)'
+        message: 'Google Drive URLs must be either folder links (e.g., https://drive.google.com/drive/folders/FOLDER_ID) or file links (e.g., https://drive.google.com/file/d/FILE_ID/view)'
       };
     }
   }
