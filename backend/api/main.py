@@ -62,7 +62,9 @@ URL_SCRAPER_MAP = {
     "interviewing.io/blog": InterviewingBlogScraper,
     "interviewing.io/topics": InterviewingTopicsScraper,
     "interviewing.io/learn": InterviewingGuidesScraper,
+    "interviewing.io/guides":InterviewingGuidesScraper,
     "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
+    'drive.google.com/drive/folders':GoogleDriveScraper,
 }
 
 def get_scraper_for_url(url: str):
