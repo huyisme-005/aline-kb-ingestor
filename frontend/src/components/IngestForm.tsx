@@ -177,7 +177,7 @@ export default function IngestForm() {
             }}
           />
           <div style={{ fontSize: "14px", color: "#666" }}>
-            <strong>Supported Sources:</strong>
+            <strong>Suggested Sources:</strong>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
               {supportedUrls.map((supportedUrl, index) => (
                 <button
