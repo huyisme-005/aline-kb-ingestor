@@ -158,7 +158,23 @@ class GenericScraper(BaseScraper):
             h = html2text.HTML2Text()
             h.ignore_links = False
             h.ignore_images = False
+            h.body_width = 0
             markdown = h.handle(html_content)
-            return markdown.strip()
+            content = markdown.strip()
+            
+            # If content is too short, try to get more text
+            if len(content) < 100:
+                # Fallback: get all paragraph text
+                paragraphs = soup.find_all(['p', 'div', 'span'])
+                text_content = []
+                for p in paragraphs:
+                    text = p.get_text(strip=True)
+                    if text and len(text) > 20:
+                        text_content.append(text)
+                
+                if text_content:
+                    content = '\n\n'.join(text_content[:10])  # Limit to first 10 meaningful paragraphs
+            
+            return content if content else "Could not extract meaningful content from this page."
         
         return "Could not extract content from this page."
