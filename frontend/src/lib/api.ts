@@ -49,11 +49,11 @@ const validateUrl = (url: string): { valid: boolean; message?: string } => {
 
   const supportedPatterns = [
     'interviewing.io/blog',
-    'interviewing.io/topics',
+    'interviewing.io/topics', 
     'interviewing.io/learn',
     'nilmamano.com/blog/category/dsa',
     'drive.google.com/drive/folders',
-    'shreycation.substack.com'
+    'substack.com' // Changed from 'shreycation.substack.com' to support all Substack publications
   ];
 
   const isSupported = supportedPatterns.some(pattern => url.includes(pattern));
@@ -111,10 +111,16 @@ export async function ingestUrl(teamId: string, url: string) {
       throw new Error('Team ID and URL are required');
     }
 
-    // Validate URL first
-    const validation = validateUrl(url);
-    if (!validation.valid) {
-      return { error: validation.message };
+    // Skip validation for localhost development to allow testing any URL
+    const isLocalhost = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (!isLocalhost) {
+      // Only validate URLs in production
+      const validation = validateUrl(url);
+      if (!validation.valid) {
+        return { error: validation.message };
+      }
     }
 
     // Check backend health first
