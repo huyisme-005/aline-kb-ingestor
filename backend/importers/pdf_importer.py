@@ -10,6 +10,7 @@ import re
 from models import ContentItem
 from typing import List
 import logging
+from math import inf
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem
 
     Args:
         pdf_path: Local filesystem path to the PDF.
-        num_chapters: Maximum number of sections to extract.
+        num_chapters: Maximum number of sections to extract (365 for testing).
 
     Returns:
         List of ContentItem objects for each section.
@@ -70,7 +71,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem
             author=""
         )]
 
-def _extract_by_chapters(text: str, max_sections: int) -> List[ContentItem]:
+def _extract_by_chapters(text: str, max_sections: int = 365) -> List[ContentItem]:
     """Extract content by looking for chapter markers."""
     items = []
     
@@ -87,7 +88,10 @@ def _extract_by_chapters(text: str, max_sections: int) -> List[ContentItem]:
     for pattern in chapter_patterns:
         matches = list(re.finditer(pattern, text, re.IGNORECASE))
         if len(matches) >= 2:  # Need at least 2 chapters to split
-            for i, match in enumerate(matches[:max_sections]):
+            # Extract all chapters if max_sections is None, otherwise limit
+            chapters_to_extract = matches if max_sections is None else matches[:max_sections]
+            
+            for i, match in enumerate(chapters_to_extract):
                 start_pos = match.start()
                 end_pos = matches[i + 1].start() if i + 1 < len(matches) else len(text)
                 
@@ -113,7 +117,7 @@ def _extract_by_chapters(text: str, max_sections: int) -> List[ContentItem]:
     
     return items
 
-def _extract_by_headers(text: str, max_sections: int) -> List[ContentItem]:
+def _extract_by_headers(text: str, max_sections: int = 365) -> List[ContentItem]:
     """Extract content by looking for section headers."""
     items = []
     
@@ -130,7 +134,8 @@ def _extract_by_headers(text: str, max_sections: int) -> List[ContentItem]:
             potential_headers.append((i, line))
     
     if len(potential_headers) >= 2:
-        for i, (line_idx, header) in enumerate(potential_headers[:max_sections]):
+        headers_to_extract = potential_headers if max_sections is None else potential_headers[:max_sections]
+        for i, (line_idx, header) in enumerate(headers_to_extract):
             start_line = line_idx
             end_line = potential_headers[i + 1][0] if i + 1 < len(potential_headers) else len(lines)
             
@@ -147,14 +152,15 @@ def _extract_by_headers(text: str, max_sections: int) -> List[ContentItem]:
     
     return items
 
-def _extract_by_pages(pdf, max_sections: int) -> List[ContentItem]:
+def _extract_by_pages(pdf, max_sections: int = 365) -> List[ContentItem]:
     """Extract content by grouping pages."""
     items = []
     total_pages = len(pdf.pages)
     
-    if total_pages <= max_sections:
+    if max_sections is None or total_pages <= max_sections:
         # One item per page
-        for i, page in enumerate(pdf.pages[:max_sections]):
+        pages_to_extract = pdf.pages if max_sections is None else pdf.pages[:max_sections]
+        for i, page in enumerate(pages_to_extract):
             page_text = page.extract_text()
             if page_text:
                 items.append(ContentItem(
