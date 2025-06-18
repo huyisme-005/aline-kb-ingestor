@@ -12,6 +12,7 @@ from models import ContentItem
 from urllib.parse import urljoin, urlparse
 from utils.html2md import convert
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class GenericScraper(BaseScraper):
     Generic scraper that can extract content from any website.
     
     Attempts to find and extract meaningful content from web pages
-    using common HTML patterns and heuristics.
+    using comprehensive HTML patterns and heuristics.
     """
     
     def __init__(self, url: str):
@@ -33,7 +34,10 @@ class GenericScraper(BaseScraper):
         but default to just the provided URL if that fails.
         """
         try:
-            response = requests.get(self.base_url, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(self.base_url, timeout=15, headers=headers)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             
@@ -42,7 +46,8 @@ class GenericScraper(BaseScraper):
             for selector in [
                 "a[href*='article']", "a[href*='post']", "a[href*='blog']",
                 "a.post-link", "a.article-link", "article a", ".content a",
-                "main a", "#content a"
+                "main a", "#content a", ".entry-title a", ".post-title a",
+                "h1 a", "h2 a", "h3 a", ".blog-post a", ".news-item a"
             ]:
                 found_links = soup.select(selector)
                 for link in found_links:
@@ -57,7 +62,7 @@ class GenericScraper(BaseScraper):
                 links = [self.base_url]
                 
             # Limit to prevent overwhelming scraping
-            return links[:20]
+            return links[:25]
             
         except Exception as e:
             logger.warning(f"Could not discover links from {self.base_url}: {e}")
@@ -65,18 +70,27 @@ class GenericScraper(BaseScraper):
     
     def parse_page(self, url: str) -> ContentItem:
         """
-        Parse any web page and extract meaningful content.
+        Parse any web page and extract meaningful content using comprehensive strategies.
         """
         try:
-            response = requests.get(url, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+            }
+            
+            response = requests.get(url, timeout=15, headers=headers)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             
             # Extract title
             title = self._extract_title(soup)
             
-            # Extract main content
-            content = self._extract_content(soup)
+            # Extract main content using multiple strategies
+            content = self._extract_content_comprehensive(soup)
             
             # Extract author if available
             author = self._extract_author(soup)
@@ -101,113 +115,275 @@ class GenericScraper(BaseScraper):
     
     def _extract_title(self, soup: BeautifulSoup) -> str:
         """Extract page title using multiple strategies."""
-        # Try various title selectors
-        for selector in ["h1", "title", ".title", ".page-title", "header h1", "article h1"]:
+        # Try various title selectors in order of preference
+        title_selectors = [
+            "h1.entry-title", "h1.post-title", "h1.article-title", 
+            "h1", ".title", ".page-title", "header h1", "article h1",
+            ".post-header h1", ".content-header h1", "title",
+            "[property='og:title']", "[name='twitter:title']"
+        ]
+        
+        for selector in title_selectors:
             element = soup.select_one(selector)
             if element:
-                title = element.get_text(strip=True)
-                if title:
+                if element.name == "meta":
+                    title = element.get("content", "")
+                elif element.get("property") == "og:title":
+                    title = element.get("content", "")
+                elif element.get("name") == "twitter:title":
+                    title = element.get("content", "")
+                else:
+                    title = element.get_text(strip=True)
+                
+                if title and len(title) > 2:
                     return title
         
         return "Untitled Page"
     
     def _extract_author(self, soup: BeautifulSoup) -> str:
         """Extract author information if available."""
-        for selector in [
+        author_selectors = [
             ".author", ".by-author", "[rel='author']", ".post-author", 
-            ".article-author", "meta[name='author']"
-        ]:
+            ".article-author", "meta[name='author']", ".byline",
+            ".author-name", ".writer", ".contributor", ".post-byline"
+        ]
+        
+        for selector in author_selectors:
             element = soup.select_one(selector)
             if element:
                 if element.name == "meta":
                     return element.get("content", "")
                 else:
                     author = element.get_text(strip=True)
-                    if author:
+                    if author and len(author) < 100:  # Reasonable author name length
                         return author
         return ""
     
-    def _extract_content(self, soup: BeautifulSoup) -> str:
-        """Extract main content using heuristics."""
+    def _extract_content_comprehensive(self, soup: BeautifulSoup) -> str:
+        """Extract main content using comprehensive strategies."""
         # Remove unwanted elements first
-        for element in soup(["script", "style", "nav", "footer", "header", "sidebar", "aside", "noscript", "iframe", "form"]):
-            element.decompose()
+        unwanted_elements = [
+            "script", "style", "nav", "footer", "header", "sidebar", 
+            "aside", "noscript", "iframe", "form", "button", "input",
+            ".advertisement", ".ad", ".ads", ".promo", ".popup",
+            ".cookie", ".newsletter", ".subscription", ".social-share",
+            ".related-posts", ".comments", ".comment-form"
+        ]
         
-        # Try to find main content area with comprehensive selectors
-        content_element = None
-        selectors = [
+        for element_type in unwanted_elements:
+            for element in soup(element_type.split('.')[0] if '.' in element_type else element_type):
+                element.decompose()
+            # Also remove by class
+            if '.' in element_type:
+                class_name = element_type[1:]
+                for element in soup.find_all(class_=class_name):
+                    element.decompose()
+        
+        # Strategy 1: Try to extract using readability heuristics
+        content = self._extract_by_readability(soup)
+        if content and len(content) > 200:
+            return content
+        
+        # Strategy 2: Try common content selectors
+        content = self._extract_by_selectors(soup)
+        if content and len(content) > 200:
+            return content
+        
+        # Strategy 3: Extract by analyzing text density
+        content = self._extract_by_text_density(soup)
+        if content and len(content) > 200:
+            return content
+        
+        # Strategy 4: Fallback to paragraph extraction
+        content = self._extract_paragraphs(soup)
+        if content and len(content) > 100:
+            return content
+        
+        # Strategy 5: Ultimate fallback - get all visible text
+        content = self._extract_all_text(soup)
+        if content and len(content) > 50:
+            return content
+        
+        return "Could not extract meaningful content from this page."
+    
+    def _extract_by_readability(self, soup: BeautifulSoup) -> str:
+        """Extract content using readability-style heuristics."""
+        # Look for elements with high text-to-tag ratio
+        best_element = None
+        best_score = 0
+        
+        for element in soup.find_all(['div', 'article', 'section', 'main']):
+            text = element.get_text(strip=True)
+            if len(text) < 100:
+                continue
+                
+            # Calculate score based on text length and tag density
+            tag_count = len(element.find_all())
+            text_length = len(text)
+            score = text_length / max(tag_count, 1)
+            
+            # Bonus for semantic elements
+            if element.name in ['article', 'main']:
+                score *= 1.5
+            
+            # Bonus for content-related classes/ids
+            class_id = ' '.join(element.get('class', []) + [element.get('id', '')])
+            if any(term in class_id.lower() for term in ['content', 'post', 'article', 'entry', 'body']):
+                score *= 1.3
+            
+            if score > best_score:
+                best_score = score
+                best_element = element
+        
+        if best_element:
+            try:
+                html_content = str(best_element)
+                return convert(html_content).strip()
+            except:
+                return best_element.get_text(strip=True)
+        
+        return ""
+    
+    def _extract_by_selectors(self, soup: BeautifulSoup) -> str:
+        """Extract content using comprehensive selectors."""
+        content_selectors = [
             "article", "main", ".content", ".post-content", ".article-content",
             ".entry-content", "#content", ".main-content", ".post-body",
             ".guide-content", ".blog-content", ".text-content", ".markup",
-            ".container", ".wrapper", ".page-content", ".body",
-            "[role='main']", ".primary-content", ".article", ".post",
-            ".section-content", ".chapter", ".documentation"
+            ".container .content", ".wrapper .content", ".page-content", 
+            ".body", "[role='main']", ".primary-content", ".article", 
+            ".post", ".section-content", ".chapter", ".documentation",
+            ".prose", ".story", ".text", ".copy", ".editorial"
         ]
         
-        for selector in selectors:
+        for selector in content_selectors:
             element = soup.select_one(selector)
             if element:
-                content_element = element
-                break
+                # Check if element has substantial content
+                text = element.get_text(strip=True)
+                if len(text) > 200:
+                    try:
+                        html_content = str(element)
+                        content = convert(html_content).strip()
+                        if content and len(content) > 100:
+                            return content
+                    except:
+                        pass
+                    
+                    # Fallback to text extraction
+                    return self._clean_text(text)
         
-        # If no specific content area found, use body but filter out navigation
-        if not content_element:
-            content_element = soup.find("body")
-            if content_element:
-                # Remove likely navigation and sidebar elements
-                for unwanted in content_element.find_all(["nav", "aside", "footer", "header", "form", "button", "menu"]):
-                    unwanted.decompose()
+        return ""
+    
+    def _extract_by_text_density(self, soup: BeautifulSoup) -> str:
+        """Extract content by finding areas with high text density."""
+        # Find all container elements
+        containers = soup.find_all(['div', 'section', 'article', 'main', 'body'])
         
-        content = ""
+        best_container = None
+        best_density = 0
         
-        if content_element:
-            # First try: Convert HTML to markdown
-            html_content = str(content_element)
+        for container in containers:
+            # Calculate text density (text length / HTML length)
+            text = container.get_text(strip=True)
+            html = str(container)
+            
+            if len(text) < 200:
+                continue
+                
+            density = len(text) / len(html)
+            
+            # Bonus for containers with many paragraphs
+            paragraph_count = len(container.find_all('p'))
+            if paragraph_count > 3:
+                density *= (1 + paragraph_count * 0.1)
+            
+            if density > best_density:
+                best_density = density
+                best_container = container
+        
+        if best_container:
             try:
-                markdown = convert(html_content)
-                content = markdown.strip()
-            except Exception as e:
-                logger.warning(f"Markdown conversion failed: {e}")
-                content = ""
-            
-            # If markdown conversion didn't work or content is too short, extract text directly
-            if not content or len(content) < 100:
-                # Get all text content with better filtering
-                text_elements = content_element.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'section'])
-                text_parts = []
-                
-                for elem in text_elements:
-                    text = elem.get_text(strip=True)
-                    # Filter out short text, navigation items, and common non-content text
-                    if (text and len(text) > 20 and 
-                        not any(skip in text.lower() for skip in [
-                            'cookie', 'privacy', 'subscribe', 'newsletter', 'advertisement',
-                            'sign up', 'log in', 'menu', 'search', 'share', 'follow',
-                            'copyright', '©', 'all rights reserved'
-                        ]) and
-                        not text.isupper() and  # Skip all-caps headings/navigation
-                        '.' in text):  # Prefer text with sentences
-                        text_parts.append(text)
-                
-                if text_parts:
-                    content = '\n\n'.join(text_parts[:30])  # Get more content
-            
-            # Ultimate fallback: just get all paragraph text
-            if not content or len(content) < 50:
-                paragraphs = soup.find_all(['p', 'div'])
-                para_texts = []
-                for p in paragraphs:
-                    text = p.get_text(strip=True)
-                    if text and len(text) > 30:  # Longer minimum for paragraphs
-                        para_texts.append(text)
-                
-                if para_texts:
-                    content = '\n\n'.join(para_texts[:15])
-            
-            # Ensure we have meaningful content
-            if content and len(content) > 50:
-                return content
-            else:
-                return f"Extracted limited content from page. Content length: {len(content)} characters."
+                html_content = str(best_container)
+                return convert(html_content).strip()
+            except:
+                return self._clean_text(best_container.get_text(strip=True))
         
-        return "Could not extract content from this page."
+        return ""
+    
+    def _extract_paragraphs(self, soup: BeautifulSoup) -> str:
+        """Extract all meaningful paragraphs."""
+        paragraphs = soup.find_all(['p', 'div', 'span', 'section'])
+        meaningful_text = []
+        
+        for para in paragraphs:
+            text = para.get_text(strip=True)
+            
+            # Filter criteria for meaningful content
+            if (text and len(text) > 30 and 
+                not self._is_navigation_text(text) and
+                '.' in text):  # Likely contains sentences
+                meaningful_text.append(text)
+        
+        if meaningful_text:
+            return '\n\n'.join(meaningful_text[:50])  # Limit but get more content
+        
+        return ""
+    
+    def _extract_all_text(self, soup: BeautifulSoup) -> str:
+        """Ultimate fallback - extract all visible text."""
+        # Get all text, then filter
+        all_text = soup.get_text(separator='\n', strip=True)
+        lines = all_text.split('\n')
+        
+        meaningful_lines = []
+        for line in lines:
+            line = line.strip()
+            if (line and len(line) > 20 and 
+                not self._is_navigation_text(line)):
+                meaningful_lines.append(line)
+        
+        if meaningful_lines:
+            return '\n'.join(meaningful_lines[:100])
+        
+        return all_text[:2000] if all_text else ""
+    
+    def _is_navigation_text(self, text: str) -> bool:
+        """Check if text is likely navigation/menu content."""
+        nav_indicators = [
+            'home', 'about', 'contact', 'menu', 'search', 'login', 'signup',
+            'subscribe', 'newsletter', 'follow', 'share', 'tweet', 'facebook',
+            'cookie', 'privacy', 'terms', 'copyright', '©', 'all rights reserved',
+            'read more', 'continue reading', 'click here', 'learn more'
+        ]
+        
+        text_lower = text.lower()
+        
+        # Check for navigation indicators
+        nav_count = sum(1 for indicator in nav_indicators if indicator in text_lower)
+        if nav_count > 2:
+            return True
+        
+        # Check if text is too short or all caps (likely navigation)
+        if len(text) < 10 or text.isupper():
+            return True
+        
+        # Check if text lacks sentence structure
+        if '.' not in text and '!' not in text and '?' not in text and len(text) < 100:
+            return True
+        
+        return False
+    
+    def _clean_text(self, text: str) -> str:
+        """Clean and format extracted text."""
+        # Remove extra whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove common unwanted patterns
+        text = re.sub(r'\[.*?\]', '', text)  # Remove [brackets]
+        text = re.sub(r'\{.*?\}', '', text)  # Remove {braces}
+        
+        # Ensure proper line breaks for readability
+        text = re.sub(r'([.!?])\s*([A-Z])', r'\1\n\n\2', text)
+        
+        return text.strip()
