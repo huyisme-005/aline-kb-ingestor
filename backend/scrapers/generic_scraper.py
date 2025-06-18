@@ -1,4 +1,3 @@
-
 """
 backend/scrapers/generic_scraper.py
 
@@ -128,10 +127,13 @@ class GenericScraper(BaseScraper):
             # Extract author if available
             author = self._extract_author(soup)
             
+            # Determine content_type
+            content_type = "book" if ("book" in title.lower() or "book" in url.lower() or ".pdf" in url.lower()) else "web_content"
+
             return ContentItem(
                 title=title,
                 content=content,
-                content_type="web_content",
+                content_type=content_type,
                 source_url=url,
                 author=author
             )
