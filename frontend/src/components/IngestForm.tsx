@@ -8,6 +8,7 @@
 
 import { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { ingestUrl, ingestPdf } from "../lib/api";
+import Head from "next/head";
 
 export default function IngestForm() {
   /**
@@ -42,7 +43,7 @@ export default function IngestForm() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       setIsLocalhost(hostname === 'localhost' || hostname === '127.0.0.1');
-      
+
       // Set a default team ID for localhost
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         setTeamId('aline123');
@@ -57,7 +58,7 @@ export default function IngestForm() {
     e.preventDefault();
     setIsLoading(true);
     setMessage("Processing...");
-    
+
     try {
       let res;
       if (url.trim()) {
@@ -71,7 +72,7 @@ export default function IngestForm() {
         setIsLoading(false);
         return;
       }
-      
+
       // Format the response for better readability
       if (res.error) {
         setMessage(`❌ Error: ${res.error}${res.details ? `\n\nDetails: ${res.details}` : ''}`);
@@ -94,7 +95,7 @@ export default function IngestForm() {
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
     const newUrl = e.target.value;
     setUrl(newUrl);
-    
+
     // Clear file when URL is entered
     if (newUrl.trim() && file) {
       setFile(null);
@@ -107,7 +108,7 @@ export default function IngestForm() {
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] ?? null;
     setFile(selectedFile);
-    
+
     // Clear URL when file is selected
     if (selectedFile && url.trim()) {
       setUrl("");
@@ -139,10 +140,24 @@ export default function IngestForm() {
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: "auto", padding: "20px" }}>
-      <h1>KB Ingestor</h1>
-      <p>Ingest content from supported websites, Google Drive folders, Substack publications, or PDF files into your knowledge base.</p>
-      
+    <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <title>KB Ingestor</title>
+      </Head>
+      <div style={{ 
+        maxWidth: 800, 
+        margin: "auto", 
+        padding: "20px",
+        fontSize: "16px", // Prevents zoom on iOS
+        lineHeight: "1.5"
+      }}></div>
+    </>
+      <h1 style={{ fontSize: "28px", marginBottom: "10px" }}>KB Ingestor</h1>
+      <p style={{ fontSize: "16px", marginBottom: "20px" }}>
+        Ingest content from supported websites, Google Drive folders, Substack publications, or PDF files into your knowledge base.
+      </p>
+
       <form onSubmit={handleSubmit}>
         {/* Only show Team ID input when NOT on localhost */}
         {!isLocalhost && (
@@ -154,12 +169,20 @@ export default function IngestForm() {
               value={teamId}
               onChange={(e) => setTeamId(e.target.value)}
               required
-              style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
+              style={{ 
+                width: "100%", 
+                padding: "12px", 
+                border: "1px solid #ccc", 
+                borderRadius: "6px",
+                fontSize: "16px",
+                minHeight: "44px",
+                boxSizing: "border-box"
+              }}
               placeholder="Enter your team identifier"
             />
           </div>
         )}
-        
+
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
             Website URL / Google Drive / Substack
@@ -170,10 +193,13 @@ export default function IngestForm() {
             placeholder="Enter a supported URL"
             style={{ 
               width: "100%", 
-              padding: "8px", 
+              padding: "12px", 
               border: "1px solid #ccc", 
-              borderRadius: "4px",
-              marginBottom: "10px"
+              borderRadius: "6px",
+              marginBottom: "10px",
+              fontSize: "16px",
+              minHeight: "44px",
+              boxSizing: "border-box"
             }}
           />
           <div style={{ fontSize: "14px", color: "#666" }}>
@@ -185,11 +211,11 @@ export default function IngestForm() {
                   type="button"
                   onClick={() => setExampleUrl(supportedUrl)}
                   style={{
-                    padding: "8px 12px",
-                    fontSize: "13px",
+                    padding: "12px 16px",
+                    fontSize: "14px",
                     backgroundColor: "#f8f9fa",
                     border: "1px solid #dee2e6",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     cursor: "pointer",
                     textDecoration: "none",
                     textAlign: "left",
@@ -197,9 +223,11 @@ export default function IngestForm() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     transition: "background-color 0.2s",
-                    ':hover': {
-                      backgroundColor: "#e9ecef"
-                    }
+                    minHeight: "44px",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    flexDirection: window.innerWidth < 768 ? "column" : "row",
+                    gap: window.innerWidth < 768 ? "4px" : "0"
                   }}
                   onMouseEnter={(e) => e.target.style.backgroundColor = "#e9ecef"}
                   onMouseLeave={(e) => e.target.style.backgroundColor = "#f8f9fa"}
@@ -216,11 +244,11 @@ export default function IngestForm() {
             </div>
           </div>
         </div>
-        
+
         <div style={{ textAlign: "center", margin: "20px 0", fontSize: "16px", fontWeight: "bold" }}>
           — OR —
         </div>
-        
+
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
             PDF File
@@ -231,36 +259,42 @@ export default function IngestForm() {
             onChange={handleFileChange}
             style={{ 
               width: "100%", 
-              padding: "8px", 
+              padding: "12px", 
               border: "1px solid #ccc", 
-              borderRadius: "4px",
-              marginBottom: "5px"
+              borderRadius: "6px",
+              marginBottom: "5px",
+              fontSize: "16px",
+              minHeight: "44px",
+              boxSizing: "border-box"
             }}
           />
           <div style={{ fontSize: "12px", color: "#666" }}>
             Upload a PDF file to extract content chapters
           </div>
         </div>
-        
+
         <button 
           type="submit" 
           disabled={isLoading || (!url.trim() && !file)}
           style={{
             width: "100%",
-            padding: "12px",
+            padding: "16px",
             backgroundColor: isLoading || (!url.trim() && !file) ? "#ccc" : "#007bff",
             color: "white",
             border: "none",
-            borderRadius: "4px",
-            fontSize: "16px",
+            borderRadius: "8px",
+            fontSize: "18px",
+            fontWeight: "600",
             cursor: isLoading || (!url.trim() && !file) ? "not-allowed" : "pointer",
-            marginBottom: "20px"
+            marginBottom: "20px",
+            minHeight: "56px",
+            boxSizing: "border-box"
           }}
         >
           {isLoading ? "Processing..." : "Ingest Content"}
         </button>
       </form>
-      
+
       {message && (
         <div style={{
           marginTop: "20px",
@@ -277,7 +311,7 @@ export default function IngestForm() {
           {message}
         </div>
       )}
-      
+
       <div style={{ marginTop: "30px", fontSize: "12px", color: "#666" }}>
         <h3>Instructions:</h3>
         <ul>
