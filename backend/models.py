@@ -26,7 +26,7 @@ class ContentItem(BaseModel):
         "blog", "podcast_transcript", "call_transcript",
         "linkedin_post", "reddit_comment", "book", "other"
     ]
-    source_url: Optional[HttpUrl] = None
+    source_url: Optional[str] = None
     author: Optional[str] = ""
     user_id: Optional[str] = ""
 
