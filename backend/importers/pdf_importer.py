@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def extract_chapters(pdf_path: str, num_chapters: int = 8) -> List[ContentItem]:
+def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem]:
     """
     Extracts content from a PDF file using multiple strategies.
     
@@ -39,7 +39,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 8) -> List[ContentItem]:
                 return [ContentItem(
                     title="Empty PDF",
                     content="No text content could be extracted from this PDF.",
-                    content_type="document",
+                    content_type="blog",
                     source_url="",
                     author=""
                 )]
@@ -65,7 +65,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 8) -> List[ContentItem]:
         return [ContentItem(
             title="PDF Processing Error",
             content=f"Error occurred while processing PDF: {str(e)}",
-            content_type="error",
+            content_type="blog",
             source_url="",
             author=""
         )]
@@ -105,7 +105,7 @@ def _extract_by_chapters(text: str, max_sections: int) -> List[ContentItem]:
                 items.append(ContentItem(
                     title=title,
                     content=chapter_text,
-                    content_type="document",
+                    content_type="blog",
                     source_url="",
                     author=""
                 ))
@@ -140,7 +140,7 @@ def _extract_by_headers(text: str, max_sections: int) -> List[ContentItem]:
             items.append(ContentItem(
                 title=header,
                 content=section_text,
-                content_type="document",
+                content_type="blog",
                 source_url="",
                 author=""
             ))
@@ -160,7 +160,7 @@ def _extract_by_pages(pdf, max_sections: int) -> List[ContentItem]:
                 items.append(ContentItem(
                     title=f"Page {i + 1}",
                     content=page_text,
-                    content_type="document",
+                    content_type="blog",
                     source_url="",
                     author=""
                 ))
@@ -182,7 +182,7 @@ def _extract_by_pages(pdf, max_sections: int) -> List[ContentItem]:
                 items.append(ContentItem(
                     title=f"Section {section_num + 1} (Pages {start_page + 1}-{end_page})",
                     content=section_text.strip(),
-                    content_type="document",
+                    content_type="blog",
                     source_url="",
                     author=""
                 ))
