@@ -5,8 +5,8 @@
 Defines the Pydantic data models for KB injection payloads.
 """
 
-from pydantic import BaseModel, HttpUrl
-from typing import Literal, Optional, List
+from pydantic import BaseModel, HttpUrl, Field
+from typing import Literal, Optional, List, Union
 
 class ContentItem(BaseModel):
     """
@@ -26,7 +26,7 @@ class ContentItem(BaseModel):
         "blog", "podcast_transcript", "call_transcript",
         "linkedin_post", "reddit_comment", "book", "other"
     ]
-    source_url: Optional[str] = None
+    source_url: Optional[Union[HttpUrl, str]] = Field(default=None, description="URL where the content originated, or None for uploaded files")
     author: Optional[str] = ""
     user_id: Optional[str] = ""
 
