@@ -74,23 +74,56 @@ class GenericScraper(BaseScraper):
         """
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1'
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'max-age=0'
             }
             
-            response = requests.get(url, timeout=15, headers=headers)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "html.parser")
+            # Try multiple times with different approaches if needed
+            response = None
+            for attempt in range(2):
+                try:
+                    response = requests.get(url, timeout=20, headers=headers, allow_redirects=True)
+                    response.raise_for_status()
+                    break
+                except requests.exceptions.SSLError:
+                    # Try without SSL verification as fallback
+                    if attempt == 0:
+                        response = requests.get(url, timeout=20, headers=headers, allow_redirects=True, verify=False)
+                        response.raise_for_status()
+                        break
+                except:
+                    if attempt == 1:
+                        raise
+            
+            # Try different parsers if one fails
+            soup = None
+            for parser in ['html.parser', 'lxml', 'html5lib']:
+                try:
+                    soup = BeautifulSoup(response.text, parser)
+                    break
+                except:
+                    continue
+            
+            if not soup:
+                soup = BeautifulSoup(response.text, "html.parser")
             
             # Extract title
             title = self._extract_title(soup)
             
             # Extract main content using multiple strategies
             content = self._extract_content_comprehensive(soup)
+            
+            # If still no content, try one more aggressive approach
+            if not content or len(content) < 50:
+                content = self._extract_fallback_content(soup)
             
             # Extract author if available
             author = self._extract_author(soup)
@@ -161,50 +194,88 @@ class GenericScraper(BaseScraper):
     
     def _extract_content_comprehensive(self, soup: BeautifulSoup) -> str:
         """Extract main content using comprehensive strategies."""
+        # Clone soup to avoid modifying original
+        working_soup = BeautifulSoup(str(soup), "html.parser")
+        
         # Remove unwanted elements first
-        unwanted_elements = [
+        unwanted_selectors = [
             "script", "style", "nav", "footer", "header", "sidebar", 
             "aside", "noscript", "iframe", "form", "button", "input",
             ".advertisement", ".ad", ".ads", ".promo", ".popup",
             ".cookie", ".newsletter", ".subscription", ".social-share",
-            ".related-posts", ".comments", ".comment-form"
+            ".related-posts", ".comments", ".comment-form", ".navigation",
+            ".menu", ".breadcrumb", ".share", ".social", ".widget",
+            "[role='navigation']", "[role='banner']", "[role='contentinfo']"
         ]
         
-        for element_type in unwanted_elements:
-            for element in soup(element_type.split('.')[0] if '.' in element_type else element_type):
-                element.decompose()
-            # Also remove by class
-            if '.' in element_type:
-                class_name = element_type[1:]
-                for element in soup.find_all(class_=class_name):
+        for selector in unwanted_selectors:
+            try:
+                elements = working_soup.select(selector)
+                for element in elements:
                     element.decompose()
+            except:
+                pass
         
-        # Strategy 1: Try to extract using readability heuristics
-        content = self._extract_by_readability(soup)
+        # Strategy 1: Try JSON-LD structured data first
+        content = self._extract_from_json_ld(working_soup)
         if content and len(content) > 200:
             return content
         
-        # Strategy 2: Try common content selectors
-        content = self._extract_by_selectors(soup)
+        # Strategy 2: Try to extract using readability heuristics
+        content = self._extract_by_readability(working_soup)
         if content and len(content) > 200:
             return content
         
-        # Strategy 3: Extract by analyzing text density
-        content = self._extract_by_text_density(soup)
-        if content and len(content) > 200:
-            return content
-        
-        # Strategy 4: Fallback to paragraph extraction
-        content = self._extract_paragraphs(soup)
+        # Strategy 3: Try common content selectors
+        content = self._extract_by_selectors(working_soup)
         if content and len(content) > 100:
             return content
         
-        # Strategy 5: Ultimate fallback - get all visible text
-        content = self._extract_all_text(soup)
+        # Strategy 4: Extract by analyzing text density
+        content = self._extract_by_text_density(working_soup)
+        if content and len(content) > 100:
+            return content
+        
+        # Strategy 5: Fallback to paragraph extraction
+        content = self._extract_paragraphs(working_soup)
         if content and len(content) > 50:
             return content
         
+        # Strategy 6: Ultimate fallback - get all visible text
+        content = self._extract_all_text(working_soup)
+        if content and len(content) > 30:
+            return content
+        
         return "Could not extract meaningful content from this page."
+    
+    def _extract_from_json_ld(self, soup: BeautifulSoup) -> str:
+        """Extract content from JSON-LD structured data."""
+        try:
+            json_ld_scripts = soup.find_all('script', type='application/ld+json')
+            for script in json_ld_scripts:
+                try:
+                    import json
+                    data = json.loads(script.string)
+                    
+                    # Handle both single objects and arrays
+                    items = data if isinstance(data, list) else [data]
+                    
+                    for item in items:
+                        # Look for article content
+                        if item.get('@type') in ['Article', 'NewsArticle', 'BlogPosting']:
+                            content = item.get('articleBody', '')
+                            if content and len(content) > 200:
+                                return content
+                            
+                            # Try description as fallback
+                            description = item.get('description', '')
+                            if description and len(description) > 100:
+                                return description
+                except:
+                    continue
+        except:
+            pass
+        return ""
     
     def _extract_by_readability(self, soup: BeautifulSoup) -> str:
         """Extract content using readability-style heuristics."""
@@ -247,13 +318,33 @@ class GenericScraper(BaseScraper):
     def _extract_by_selectors(self, soup: BeautifulSoup) -> str:
         """Extract content using comprehensive selectors."""
         content_selectors = [
-            "article", "main", ".content", ".post-content", ".article-content",
-            ".entry-content", "#content", ".main-content", ".post-body",
-            ".guide-content", ".blog-content", ".text-content", ".markup",
-            ".container .content", ".wrapper .content", ".page-content", 
-            ".body", "[role='main']", ".primary-content", ".article", 
-            ".post", ".section-content", ".chapter", ".documentation",
-            ".prose", ".story", ".text", ".copy", ".editorial"
+            # Article and main content
+            "article", "main", "[role='main']",
+            
+            # Common content classes
+            ".content", ".post-content", ".article-content", ".entry-content",
+            ".main-content", ".post-body", ".article-body", ".story-body",
+            
+            # News and media specific
+            ".story", ".article-text", ".news-content", ".media-story-body",
+            ".story-content", ".article-wrap", ".news-story", 
+            
+            # Blog specific
+            ".blog-content", ".post", ".entry", ".blog-post",
+            
+            # Documentation and guides
+            ".guide-content", ".documentation", ".docs", ".manual",
+            
+            # Generic content containers
+            "#content", "#main", ".page-content", ".primary-content",
+            ".text-content", ".markup", ".prose", ".copy", ".editorial",
+            
+            # Layout containers that often contain content
+            ".container .content", ".wrapper .content", ".layout-content",
+            ".site-content", ".page-wrapper", ".content-wrapper",
+            
+            # Specific to some CMSs
+            ".field-content", ".node-content", ".wysiwyg"
         ]
         
         for selector in content_selectors:
@@ -313,22 +404,44 @@ class GenericScraper(BaseScraper):
     
     def _extract_paragraphs(self, soup: BeautifulSoup) -> str:
         """Extract all meaningful paragraphs."""
-        paragraphs = soup.find_all(['p', 'div', 'span', 'section'])
+        # Look for paragraphs and other text containers
+        text_elements = soup.find_all(['p', 'div', 'section', 'article', 'span', 'blockquote', 'li'])
         meaningful_text = []
+        seen_text = set()
         
-        for para in paragraphs:
-            text = para.get_text(strip=True)
+        for element in text_elements:
+            text = element.get_text(strip=True)
+            
+            # Skip if we've seen this text before (avoid duplicates)
+            if text in seen_text:
+                continue
             
             # Filter criteria for meaningful content
-            if (text and len(text) > 30 and 
+            if (text and len(text) > 20 and 
                 not self._is_navigation_text(text) and
-                '.' in text):  # Likely contains sentences
+                self._has_sentence_structure(text)):
                 meaningful_text.append(text)
+                seen_text.add(text)
         
         if meaningful_text:
-            return '\n\n'.join(meaningful_text[:50])  # Limit but get more content
+            # Sort by length to prioritize longer, more substantial content
+            meaningful_text.sort(key=len, reverse=True)
+            return '\n\n'.join(meaningful_text[:30])
         
         return ""
+    
+    def _has_sentence_structure(self, text: str) -> bool:
+        """Check if text has sentence-like structure."""
+        # Look for sentence ending punctuation
+        if any(char in text for char in '.!?'):
+            return True
+        
+        # Look for multiple words and reasonable length
+        words = text.split()
+        if len(words) >= 5 and len(text) >= 50:
+            return True
+            
+        return False
     
     def _extract_all_text(self, soup: BeautifulSoup) -> str:
         """Ultimate fallback - extract all visible text."""
@@ -373,6 +486,37 @@ class GenericScraper(BaseScraper):
             return True
         
         return False
+    
+    def _extract_fallback_content(self, soup: BeautifulSoup) -> str:
+        """Last resort content extraction - get any meaningful text."""
+        try:
+            # Remove all script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Get text from body or html
+            body = soup.find('body') or soup
+            text = body.get_text()
+            
+            # Split into lines and filter
+            lines = text.split('\n')
+            meaningful_lines = []
+            
+            for line in lines:
+                line = line.strip()
+                if (line and len(line) > 15 and 
+                    not line.isdigit() and 
+                    not self._is_navigation_text(line)):
+                    meaningful_lines.append(line)
+            
+            if meaningful_lines:
+                # Take the longest lines as they're likely content
+                meaningful_lines.sort(key=len, reverse=True)
+                return '\n\n'.join(meaningful_lines[:20])
+            
+            return text[:1000] if text else ""
+        except:
+            return ""
     
     def _clean_text(self, text: str) -> str:
         """Clean and format extracted text."""
