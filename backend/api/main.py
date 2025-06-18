@@ -20,8 +20,8 @@ from api.tasks import ingest_payload
 import os
 import tempfile
 import logging
-from urllib.parse import urlparse
-import re  # Keeping this import used
+from urllib.parse import urlparse  # Ensured urlparse is utilized
+import re  # Utilized for URL validation in ingestion functions
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,17 +37,78 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000", 
+        "http://0.0.0.0:3000", 
         "http://127.0.0.1:3000",
-        "http://localhost:3001", 
+        "http://0.0.0.0:3001", 
         "http://127.0.0.1:3001",
-        "http://localhost:8080", 
+        "http://0.0.0.0:8080", 
         "http://127.0.0.1:8080",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Supported URL patterns and their corresponding scrapers
+URL_SCRAPER_MAP = {
+    "interviewing.io/blog": InterviewingBlogScraper,
+    "interviewing.io/topics": InterviewingTopicsScraper,
+    "interviewing.io/learn": InterviewingGuidesScraper,
+    "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
+    'drive.google.com/drive/folders': GoogleDriveScraper,
+    'drive.google.com/file/d/': GoogleDriveScraper,
+}
+def get_scraper_for_url(url: str):
+    """
+    Determine the appropriate scraper based on URL pattern.
+    
+    Args:
+        url: The URL to check
+        
+    Returns:
+        Scraper class or instance if supported, always returns something
+    """
+    if "substack.com" in url:
+        return SubstackScraper(url)
+    for pattern, scraper_class in URL_SCRAPER_MAP.items():
+        if pattern in url:
+            return scraper_class(url)
+    return GenericScraper(url)
+@app.post("/ingest/url")
+async def ingest_url(
+    team_id: str = Form(...),
+    source_url: str = Form(...),
+    background_tasks: BackgroundTasks = None
+):
+    try:
+        logger.info(f"Ingesting URL: {source_url} for team: {team_id}")
+        # Validate URL format using regex
+        url_pattern = re.compile(
+            r'^(http|https)://[a-zA-Z0-9-._~%]+(?:\.[a-zA-Z0-9-._~%]+)+.*$', 
+            re.IGNORECASE
+        )
+        if not url_pattern.match(source_url):
+            raise HTTPException(status_code=400, detail="Invalid URL format. URL must include protocol (http/https) and a valid domain.")
+        parsed_url = urlparse(source_url)
+        if not parsed_url.scheme or not parsed_url.netloc:
+            raise HTTPException(status_code=400, detail="Invalid URL format. URL must include protocol (http/https)")
+        # Determine scraper based on URL pattern
+        scraper = get_scraper_for_url(source_url)
+        # Initialize and run the scraper
+        logger.info(f"Using scraper: {scraper.__class__.__name__}")
+        payload = scraper.run(team_id)
+        if not payload.get("items"):
+            return JSONResponse(status_code=200, content={"team_id": team_id, "items": [], "message": "No content found to ingest", "source_url": source_url})
+        # Queue background task for ingestion (optional)
+        if background_tasks:
+            background_tasks.add_task(ingest_payload, payload)
+        logger.info(f"Successfully ingested {len(payload['items'])} items")
+        return {"team_id": team_id, "items": payload["items"], "source_url": source_url, "message": f"Successfully ingested {len(payload['items'])} items"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ingestion failed for {source_url}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 @app.post("/ingest/pdf")
 async def ingest_pdf(
@@ -56,95 +117,95 @@ async def ingest_pdf(
     num_chapters: int = Form(None),
     background_tasks: BackgroundTasks = None
 ):
-    """
-    Ingest content from an uploaded PDF file.
-    
-    Args:
-        team_id: The team/user ID to attach to the content.
-        file: The uploaded PDF file.
-        num_chapters: Number of chapters to extract (None for unlimited).
-        background_tasks: FastAPI background tasks handler.
-        
-    Returns:
-        JSON payload with team_id and extracted items.
-    """
+    # Validate and process the incoming PDF file
     try:
         logger.info(f"Ingesting PDF: {file.filename} for team: {team_id}")
         
-        # Validate file type
-        if not re.match(r".+\.pdf$", file.filename, re.IGNORECASE):
-            raise HTTPException(
-                status_code=400, 
-                detail="Only PDF files are supported"
-            )
-        
-        # Check file size (optional - set a reasonable limit)
+        if not file.filename or not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
         content = await file.read()
         file_size_mb = len(content) / (1024 * 1024)
-        if file_size_mb > 50:  # 50MB limit
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large: {file_size_mb:.1f}MB. Maximum size: 50MB"
-            )
-        
-        # Save uploaded file temporarily
+        if file_size_mb > 50:  # Size check
+            raise HTTPException(status_code=400, detail=f"File too large: {file_size_mb:.1f}MB. Maximum size: 50MB")
+
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
             tmp_file.write(content)
             tmp_path = tmp_file.name
-        
+
         try:
-            # Extract chapters from PDF
-            chapters_msg = "all available chapters" if num_chapters is None else f"{num_chapters} chapters"
-            logger.info(f"Extracting {chapters_msg} from PDF")
+            logger.info(f"Extracting {num_chapters} chapters from PDF.")
             items = extract_chapters(tmp_path, num_chapters)
-            
-            # Create payload
+
             payload = {
                 "team_id": team_id,
                 "items": [item.dict() for item in items]
             }
-            
+
             if not payload["items"]:
-                return JSONResponse(
-                    status_code=200,
-                    content={
-                        "team_id": team_id, 
-                        "items": [], 
-                        "message": "No chapters found in PDF",
-                        "filename": file.filename
-                    }
-                )
-            
-            # Queue background task for ingestion (optional)
+                return JSONResponse(status_code=200, content={"team_id": team_id, "items": [], "message": "No chapters found in PDF", "filename": file.filename})
+
             if background_tasks:
                 background_tasks.add_task(ingest_payload, payload)
-            
+
             logger.info(f"Successfully extracted {len(payload['items'])} chapters")
-            
-            # Return the actual payload
-            return {
-                "team_id": team_id,
-                "items": payload["items"],
-                "filename": file.filename,
-                "message": f"Successfully extracted {len(payload['items'])} chapters"
-            }
-            
+            return {"team_id": team_id, "items": payload["items"], "filename": file.filename, "message": f"Successfully extracted {len(payload['items'])} chapters"}
+
         finally:
-            # Clean up temporary file
-            try:
-                os.unlink(tmp_path)
-            except Exception as e:
-                logger.warning(f"Failed to clean up temp file {tmp_path}: {e}")
+            os.unlink(tmp_path)  # Clean up temporary file
             
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"PDF ingestion failed for {file.filename}: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"PDF ingestion failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"PDF ingestion failed: {str(e)}")
+
+@app.get("/scrapers")
+async def list_scrapers():
+    """
+    List all available scrapers and their supported URL patterns.
+    
+    Returns:
+        Dictionary of available scrapers and their details.
+    """
+    scrapers_info = {
+        "interviewing_blog": {
+            "class": InterviewingBlogScraper,
+            "pattern": "interviewing.io/blog",
+            "description": "Scrapes content from interviewing.io blog.",
+        },
+        "interviewing_topics": {
+            "class": InterviewingTopicsScraper,
+            "pattern": "interviewing.io/topics",
+            "description": "Scrapes information about interview topics from interviewing.io.",
+        },
+        "interviewing_guides": {
+            "class": InterviewingGuidesScraper,
+            "pattern": "interviewing.io/learn",
+            "description": "Scrapes interview guide information.",
+        },
+        "nilmamano": {
+            "class": NilMamanoDSAScraper,
+            "pattern": "nilmamano.com/blog/category/dsa",
+            "description": "Scrapes NIL Mamano DSA blog.",
+        },
+        "google_drive": {
+            "class": GoogleDriveScraper,
+            "pattern": "drive.google.com",
+            "description": "Scrapes content from Google Drive.",
+        },
+        "generic": {
+            "class": GenericScraper,
+            "pattern": "*",
+            "description": "Generic scraper for any website.",
+        },
+        "substack": {
+            "class": SubstackScraper,
+            "pattern": "*.substack.com",
+            "description": "Scrapes content from Substack publications.",
+        },
+    }
+    return {"scrapers": scrapers_info, "total_scrapers": len(scrapers_info)}
 
 @app.get("/health")
 async def health_check():
@@ -154,11 +215,7 @@ async def health_check():
     Returns:
         API health status.
     """
-    return {
-        "status": "healthy", 
-        "service": "aline-kb-ingestor",
-        "supported_patterns": get_supported_patterns()
-    }
+    return {"status": "healthy", "service": "aline-kb-ingestor"}
 
 @app.get("/")
 async def root():
@@ -172,12 +229,5 @@ async def root():
         "message": "Aline KB Ingestor API",
         "version": "0.1.0",
         "status": "healthy",
-        "description": "Now supports ANY website URL and ALL PDF types",
-        "endpoints": {
-            "ingest_url": "/ingest/url",
-            "ingest_pdf": "/ingest/pdf",
-            "health": "/health",
-            "scrapers": "/scrapers"
-        },
-        "supported_sources": "All websites and PDF files"
+        "description": "Now supports ANY website URL and ALL PDF types"
     }
