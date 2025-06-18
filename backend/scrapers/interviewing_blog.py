@@ -21,12 +21,19 @@ class InterviewingBlogScraper(BaseScraper):
         parse_page: fetches a post URL and extracts title, author, and content.
     """
 
+    def __init__(self, url: str = None):
+        self.url = url
+
     def discover_links(self):
-        """Collects all blog post URLs by paginating until no more posts."""
+        """Collects all blog post URLs by paginating until no more posts, starting from self.url if provided."""
         page = 1
         urls = []
+        base_url = self.url or BASE + "/blog"
         while True:
-            resp = requests.get(f"{BASE}/blog?page={page}")
+            if page == 1 and self.url:
+                resp = requests.get(base_url)
+            else:
+                resp = requests.get(f"{BASE}/blog?page={page}")
             soup = BeautifulSoup(resp.text, "html.parser")
             links = [a["href"] for a in soup.select("a.post-link")]
             if not links:

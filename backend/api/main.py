@@ -51,31 +51,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Supported URL patterns and their corresponding scrapers
-URL_SCRAPER_MAP = {
-    "interviewing.io/blog": InterviewingBlogScraper,
-    "interviewing.io/topics": InterviewingTopicsScraper,
-    "interviewing.io/learn": InterviewingGuidesScraper,
-    "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
-    'drive.google.com/drive/folders': GoogleDriveScraper,
-    'drive.google.com/file/d/': GoogleDriveScraper,
-}
 def get_scraper_for_url(url: str):
     """
     Determine the appropriate scraper based on URL pattern.
-    
-    Args:
-        url: The URL to check
-        
-    Returns:
-        Scraper class or instance if supported, always returns something
+    Always instantiate with the url argument for consistency.
     """
     if "substack.com" in url:
         return SubstackScraper(url)
-    for pattern, scraper_class in URL_SCRAPER_MAP.items():
-        if pattern in url:
-            return scraper_class(url)
+    if "interviewing.io/blog" in url:
+        return InterviewingBlogScraper(url)
+    if "interviewing.io/topics" in url:
+        return InterviewingTopicsScraper(url)
+    if "interviewing.io/learn" in url:
+        return InterviewingGuidesScraper(url)
+    if "nilmamano.com/blog/category/dsa" in url:
+        return NilMamanoDSAScraper(url)
+    if "drive.google.com/drive/folders" in url or "drive.google.com/file/d/" in url:
+        return GoogleDriveScraper(url)
     return GenericScraper(url)
+
 @app.post("/ingest/url")
 async def ingest_url(
     team_id: str = Form(...),

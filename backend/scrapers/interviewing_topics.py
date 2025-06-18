@@ -19,9 +19,13 @@ class InterviewingTopicsScraper(BaseScraper):
     - parse_page: converts guide HTML into Markdown ContentItem.
     """
 
+    def __init__(self, url: str = None):
+        self.url = url
+
     def discover_links(self):
-        """Fetches /topics and returns all company guide links."""
-        resp = requests.get(f"{BASE}/topics")
+        """Fetches /topics and returns all company guide links, starting from self.url if provided."""
+        url = self.url or BASE + "/topics"
+        resp = requests.get(url)
         soup = BeautifulSoup(resp.text, "html.parser")
         return [BASE + a["href"] for a in soup.select("section#companies a")]
 

@@ -62,18 +62,12 @@ class GoogleDriveScraper(BaseScraper):
     def discover_links(self) -> List[str]:
         """
         Discover all file links within the specified Google Drive folder or return the single file URL.
-
-        Returns:
-            A list of file URLs or unique identifiers as strings.
+        Uses self.url for all logic.
         """
         self.logger.info(f"Discovering links in Google Drive URL: {self.url}")
-        
         if self.is_file:
-            # For single files, just return the file URL
             return [self.url]
         elif self.is_folder:
-            # For folders, we would need Google Drive API integration
-            # For now, return empty list with warning
             self.logger.warning("Google Drive folder API integration not yet implemented - returning empty list")
             return []
         else:
@@ -83,23 +77,12 @@ class GoogleDriveScraper(BaseScraper):
     def parse_page(self, url: str) -> ContentItem:
         """
         Fetches and parses a specific file from Google Drive into a ContentItem.
-
-        Args:
-            url: The file URL or identifier from discover_links.
-
-        Returns:
-            A populated ContentItem.
+        Uses self.url for all logic.
         """
         self.logger.info(f"Parsing Google Drive file: {url}")
-
         if '/file/d/' in url:
             file_id = self.extract_file_id(url)
-            
-            # Create a public download link for the file
             download_url = f"https://drive.google.com/uc?id={file_id}&export=download"
-            
-            # For now, return a placeholder ContentItem
-            # In a real implementation, you would fetch the file content
             return ContentItem(
                 title=f"Google Drive File: {file_id}",
                 content=f"Google Drive file content extraction not yet fully implemented. File ID: {file_id}. Download URL: {download_url}",
