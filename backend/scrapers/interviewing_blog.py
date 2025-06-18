@@ -36,18 +36,42 @@ class InterviewingBlogScraper(BaseScraper):
         return [BASE + u for u in urls]
 
     def parse_page(self, url: str) -> ContentItem:
-        """Parses a single blog post into a ContentItem."""
+        """Parses a blog post page into ContentItem."""
         resp = requests.get(url)
         soup = BeautifulSoup(resp.text, "html.parser")
-        title = soup.select_one("h1.post-title").get_text(strip=True)
-        author_tag = soup.select_one(".post-author")
-        author = author_tag.get_text(strip=True) if author_tag else ""
-        body_html = str(soup.select_one(".post-content"))
-        markdown = convert(body_html)
+
+        # Extract title with fallback
+        title = "Untitled"
+        title_elem = soup.select_one("h1")
+        if title_elem:
+            title = title_elem.get_text(strip=True)
+
+        # Extract content with multiple selectors and fallback
+        content = ""
+        selectors = [".post-content", "main", "article", ".content", ".blog-content", ".entry-content", "body"]
+
+        for selector in selectors:
+            content_elem = soup.select_one(selector)
+            if content_elem:
+                body_html = str(content_elem)
+                 
+                content = convert(body_html).strip()
+                if content and len(content) > 50:  # Ensure meaningful content
+                    break
+
+        # Fallback: extract all paragraph text
+        if not content or len(content) < 50:
+            paragraphs = soup.find_all(['p', 'div', 'span'])
+            text_parts = []
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text and len(text) > 10:
+                    text_parts.append(text)
+            content = '\n\n'.join(text_parts)
+
         return ContentItem(
             title=title,
-            content=markdown,
+            content=content if content else f"Could not extract content from {url}",
             content_type="blog",
-            source_url=url,
-            author=author
+            source_url=url
         )
