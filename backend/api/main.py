@@ -231,3 +231,7 @@ async def root():
         "status": "healthy",
         "description": "Now supports ANY website URL and ALL PDF types"
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
