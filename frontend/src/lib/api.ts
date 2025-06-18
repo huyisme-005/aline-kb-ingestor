@@ -309,5 +309,20 @@ export async function ingestPdf(
     
   } catch (error) {
     console.error('Error in ingestPdf:', error);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { error: 'Request timed out. Please try with a smaller PDF file.' };
+      }
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        return { 
+          error: `Cannot connect to backend server at ${API_URL}. Please ensure the backend server is running.`,
+          details: error.message 
+        };
+      }
+      return { error: error.message };
+    }
+    
+    return { error: 'An unknown error occurred during PDF upload' };
   }
 }
