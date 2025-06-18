@@ -67,7 +67,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 100000000000000000000000
             content=f"Error occurred while processing PDF: {str(e)}",
             content_type="book",
             source_url=None,
-            author=""
+            author=None
         )]
 
 def _extract_by_chapters(text: str, max_sections: int = 10000000000000000000000000000000) -> List[ContentItem]:
@@ -110,7 +110,7 @@ def _extract_by_chapters(text: str, max_sections: int = 100000000000000000000000
                     content=chapter_text,
                     content_type="book",
                     source_url=None,
-                    author=""
+                    author=None
                 ))
             break
     
@@ -146,7 +146,7 @@ def _extract_by_headers(text: str, max_sections: int = 1000000000000000000000000
                 content=section_text,
                 content_type="book",
                 source_url=None,
-                author=""
+                author=None
             ))
     
     return items
@@ -167,7 +167,7 @@ def _extract_by_pages(pdf, max_sections: int = 10000000000000000000000000000000)
                     content=page_text,
                     content_type="book",
                     source_url=None,
-                    author=""
+                    author=None
                 ))
     else:
         # Group pages
@@ -189,7 +189,7 @@ def _extract_by_pages(pdf, max_sections: int = 10000000000000000000000000000000)
                     content=section_text.strip(),
                     content_type="book",
                     source_url=None,
-                    author=""
+                    author=None
                 ))
     
     return items
