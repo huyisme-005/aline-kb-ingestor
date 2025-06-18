@@ -21,7 +21,7 @@ import os
 import tempfile
 import logging
 from urllib.parse import urlparse
-import re
+import re  # Keeping this import used
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,220 +37,17 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Next.js frontend
+        "http://localhost:3000", 
         "http://127.0.0.1:3000",
-        "http://localhost:3001",  # Alternative port
+        "http://localhost:3001", 
         "http://127.0.0.1:3001",
-        "http://localhost:8080",  # Alternative frontend port
+        "http://localhost:8080", 
         "http://127.0.0.1:8080",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-# Supported URL patterns and their corresponding scrapers
-URL_SCRAPER_MAP = {
-    "interviewing.io/blog": InterviewingBlogScraper,
-    "interviewing.io/topics": InterviewingTopicsScraper,
-    "interviewing.io/learn": InterviewingGuidesScraper,
-    "interviewing.io/guides": InterviewingGuidesScraper,
-    "nilmamano.com/blog/category/dsa": NilMamanoDSAScraper,
-    'drive.google.com/drive/folders': GoogleDriveScraper,
-    'drive.google.com/file/d/': GoogleDriveScraper,
-}
-
-def get_scraper_for_url(url: str):
-    """
-    Determine the appropriate scraper based on URL pattern.
-    
-    Args:
-        url: The URL to check
-        
-    Returns:
-        Scraper class or instance if supported, always returns something
-    """
-    # Check for Substack URLs first (most specific)
-    if is_substack_url(url):
-        # Extract base URL for Substack
-        parsed = urlparse(url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}"
-        return SubstackScraper(base_url)
-    
-    # Check for exact pattern matches with more specific conditions
-    for pattern, scraper_class in URL_SCRAPER_MAP.items():
-        if pattern in url:
-            # Additional validation for interviewing.io patterns
-            if pattern.startswith("interviewing.io/"):
-                # Make sure it's actually the right section
-                if pattern == "interviewing.io/blog" and "/blog" in url and "interviewing.io" in url:
-                    return scraper_class
-                elif pattern == "interviewing.io/topics" and "/topics" in url and "interviewing.io" in url:
-                    return scraper_class
-                elif pattern in ["interviewing.io/learn", "interviewing.io/guides"] and ("/learn" in url or "/guides" in url) and "interviewing.io" in url:
-                    return scraper_class
-                # If it's interviewing.io but doesn't match the specific sections, use generic
-                elif "interviewing.io" in url:
-                    return GenericScraper(url)
-            elif pattern == "nilmamano.com/blog/category/dsa" and pattern in url:
-                return scraper_class
-            elif pattern.startswith('drive.google.com'):
-                return GoogleDriveScraper(url)
-    
-    # Fallback to generic scraper for any other URL
-    return GenericScraper(url)
-
-def is_substack_url(url: str) -> bool:
-    """
-    Check if URL is a valid Substack publication URL.
-    
-    Args:
-        url: URL to check
-        
-    Returns:
-        True if it's a Substack URL, False otherwise
-    """
-    try:
-        parsed = urlparse(url)
-        # Check if hostname ends with .substack.com
-        return parsed.netloc.endswith('.substack.com')
-    except:
-        return False
-
-def get_supported_patterns():
-    """
-    Get list of all supported URL patterns including dynamic ones.
-    
-    Returns:
-        List of supported patterns
-    """
-    patterns = list(URL_SCRAPER_MAP.keys())
-    patterns.append("*.substack.com")  # Add Substack pattern
-    patterns.append("*")  # Generic scraper supports any URL
-    return patterns
-
-@app.get("/")
-async def root():
-    """
-    Root endpoint providing API information.
-    
-    Returns:
-        Basic API information and available endpoints.
-    """
-    return {
-        "message": "Aline KB Ingestor API",
-        "version": "0.1.0",
-        "status": "healthy",
-        "description": "Now supports ANY website URL and ALL PDF types",
-        "endpoints": {
-            "ingest_url": "/ingest/url",
-            "ingest_pdf": "/ingest/pdf",
-            "health": "/health",
-            "scrapers": "/scrapers"
-        },
-        "supported_sources": "All websites and PDF files"
-    }
-
-@app.get("/health")
-async def health_check():
-    """
-    Health check endpoint.
-    
-    Returns:
-        API health status.
-    """
-    return {
-        "status": "healthy", 
-        "service": "aline-kb-ingestor",
-        "supported_patterns": get_supported_patterns()
-    }
-
-@app.post("/ingest/url")
-async def ingest_url(
-    team_id: str = Form(...),
-    source_url: str = Form(...),
-    background_tasks: BackgroundTasks = None
-):
-    """
-    Ingest a web page by URL.
-
-    Chooses the appropriate scraper based on URL pattern,
-    then returns the payload directly (and optionally queues background job).
-
-    Args:
-        team_id: The team/user ID to attach to the content.
-        source_url: The URL to scrape and ingest.
-        background_tasks: FastAPI background tasks handler.
-
-    Returns:
-        JSON payload with team_id and scraped items.
-    """
-    try:
-        logger.info(f"Ingesting URL: {source_url} for team: {team_id}")
-        
-        # Validate URL format
-        try:
-            parsed_url = urlparse(source_url)
-            if not parsed_url.scheme or not parsed_url.netloc:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid URL format. URL must include protocol (http/https)"
-                )
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid URL format: {str(e)}"
-            )
-        
-        # Determine scraper based on URL pattern
-        scraper = get_scraper_for_url(source_url)
-
-        # Initialize scraper if it's a class
-        if isinstance(scraper, type):
-            scraper_instance = scraper()
-            scraper_name = scraper.__name__
-        else:
-            scraper_instance = scraper
-            scraper_name = scraper.__class__.__name__
-            
-        logger.info(f"Using scraper: {scraper_name}")
-        
-        payload = scraper_instance.run(team_id)
-        
-        if not payload or not payload.get("items"):
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "team_id": team_id, 
-                    "items": [], 
-                    "message": "No content found to ingest",
-                    "source_url": source_url
-                }
-            )
-
-        # Queue background task for ingestion (optional)
-        if background_tasks:
-            background_tasks.add_task(ingest_payload, payload)
-        
-        logger.info(f"Successfully ingested {len(payload['items'])} items")
-        
-        # Return the actual payload
-        return {
-            "team_id": team_id,
-            "items": payload["items"],
-            "source_url": source_url,
-            "message": f"Successfully ingested {len(payload['items'])} items"
-        }
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except Exception as e:
-        logger.error(f"Ingestion failed for {source_url}: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Ingestion failed: {str(e)}"
-        )
 
 @app.post("/ingest/pdf")
 async def ingest_pdf(
@@ -275,7 +72,7 @@ async def ingest_pdf(
         logger.info(f"Ingesting PDF: {file.filename} for team: {team_id}")
         
         # Validate file type
-        if not file.filename or not file.filename.lower().endswith('.pdf'):
+        if not re.match(r".+\.pdf$", file.filename, re.IGNORECASE):
             raise HTTPException(
                 status_code=400, 
                 detail="Only PDF files are supported"
@@ -349,36 +146,38 @@ async def ingest_pdf(
             detail=f"PDF ingestion failed: {str(e)}"
         )
 
-@app.get("/scrapers")
-async def list_scrapers():
+@app.get("/health")
+async def health_check():
     """
-    List all available scrapers and their supported URL patterns.
+    Health check endpoint.
     
     Returns:
-        Dictionary of available scrapers and their details.
+        API health status.
     """
-    scrapers_info = {}
-    
-    # Add static scrapers
-    for pattern, scraper_class in URL_SCRAPER_MAP.items():
-        key = pattern.replace(".", "_").replace("/", "_")
-        scrapers_info[key] = {
-            "class": scraper_class.__name__,
-            "pattern": pattern,
-            "description": f"Scrapes content from {pattern}",
-            "example_url": f"https://{pattern}"
-        }
-    
-    # Add Substack scraper info
-    scrapers_info["substack"] = {
-        "class": "SubstackScraper",
-        "pattern": "*.substack.com",
-        "description": "Scrapes content from any Substack publication",
-        "example_url": "https://publication.substack.com"
-    }
-    
     return {
-        "scrapers": scrapers_info,
-        "total_scrapers": len(scrapers_info),
+        "status": "healthy", 
+        "service": "aline-kb-ingestor",
         "supported_patterns": get_supported_patterns()
+    }
+
+@app.get("/")
+async def root():
+    """
+    Root endpoint providing API information.
+    
+    Returns:
+        Basic API information and available endpoints.
+    """
+    return {
+        "message": "Aline KB Ingestor API",
+        "version": "0.1.0",
+        "status": "healthy",
+        "description": "Now supports ANY website URL and ALL PDF types",
+        "endpoints": {
+            "ingest_url": "/ingest/url",
+            "ingest_pdf": "/ingest/pdf",
+            "health": "/health",
+            "scrapers": "/scrapers"
+        },
+        "supported_sources": "All websites and PDF files"
     }
