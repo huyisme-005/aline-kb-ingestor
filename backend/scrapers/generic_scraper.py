@@ -130,16 +130,20 @@ class GenericScraper(BaseScraper):
     def _extract_content(self, soup: BeautifulSoup) -> str:
         """Extract main content using heuristics."""
         # Remove unwanted elements
-        for element in soup(["script", "style", "nav", "footer", "header", "sidebar", "aside"]):
+        for element in soup(["script", "style", "nav", "footer", "header", "sidebar", "aside", "noscript"]):
             element.decompose()
         
-        # Try to find main content area
+        # Try to find main content area with more comprehensive selectors
         content_element = None
-        for selector in [
+        selectors = [
             "article", "main", ".content", ".post-content", ".article-content",
             ".entry-content", "#content", ".main-content", ".post-body",
-            ".container", ".wrapper", ".page-content", ".text-content"
-        ]:
+            ".guide-content", ".blog-content", ".text-content",
+            ".container", ".wrapper", ".page-content", 
+            "[role='main']", ".primary-content", ".article", ".post"
+        ]
+        
+        for selector in selectors:
             element = soup.select_one(selector)
             if element:
                 content_element = element
@@ -150,7 +154,7 @@ class GenericScraper(BaseScraper):
             content_element = soup.find("body")
             if content_element:
                 # Remove likely navigation and sidebar elements
-                for unwanted in content_element.find_all(["nav", "aside", "footer", "header"]):
+                for unwanted in content_element.find_all(["nav", "aside", "footer", "header", "form", "button"]):
                     unwanted.decompose()
         
         if content_element:
@@ -159,19 +163,26 @@ class GenericScraper(BaseScraper):
             markdown = convert(html_content)
             content = markdown.strip()
             
-            # If content is too short, try to get more text
+            # If content is too short, try to get more text with broader search
             if len(content) < 100:
-                # Fallback: get all paragraph text
-                paragraphs = soup.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+                # Fallback: get all meaningful text
+                all_text_elements = soup.find_all(['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td'])
                 text_content = []
-                for p in paragraphs:
-                    text = p.get_text(strip=True)
-                    if text and len(text) > 20:
+                for elem in all_text_elements:
+                    text = elem.get_text(strip=True)
+                    if text and len(text) > 15 and not any(skip in text.lower() for skip in ['cookie', 'privacy', 'subscribe', 'newsletter', 'advertisement']):
                         text_content.append(text)
                 
                 if text_content:
-                    content = '\n\n'.join(text_content[:15])  # Get more content
+                    content = '\n\n'.join(text_content[:20])  # Get more content
             
-            return content if content else "Could not extract meaningful content from this page."
+            # Final check: if still no meaningful content, try extracting just paragraphs
+            if not content or len(content) < 50:
+                paragraphs = soup.find_all('p')
+                if paragraphs:
+                    para_texts = [p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)]
+                    content = '\n\n'.join(para_texts[:10])
+            
+            return content if content and len(content) > 10 else "Could not extract meaningful content from this page."
         
         return "Could not extract content from this page."
