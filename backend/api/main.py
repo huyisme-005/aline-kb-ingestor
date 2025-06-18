@@ -256,7 +256,7 @@ async def ingest_url(
 async def ingest_pdf(
     team_id: str = Form(...),
     file: UploadFile = File(...),
-    num_chapters: int = Form(8),
+    num_chapters: int = Form(None),
     background_tasks: BackgroundTasks = None
 ):
     """
@@ -265,7 +265,7 @@ async def ingest_pdf(
     Args:
         team_id: The team/user ID to attach to the content.
         file: The uploaded PDF file.
-        num_chapters: Number of chapters to extract (default: 8).
+        num_chapters: Number of chapters to extract (None for unlimited).
         background_tasks: FastAPI background tasks handler.
         
     Returns:
@@ -297,7 +297,8 @@ async def ingest_pdf(
         
         try:
             # Extract chapters from PDF
-            logger.info(f"Extracting {num_chapters} chapters from PDF")
+            chapters_msg = "all available chapters" if num_chapters is None else f"{num_chapters} chapters"
+            logger.info(f"Extracting {chapters_msg} from PDF")
             items = extract_chapters(tmp_path, num_chapters)
             
             # Create payload
