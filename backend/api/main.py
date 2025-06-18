@@ -21,6 +21,7 @@ import os
 import tempfile
 import logging
 from urllib.parse import urlparse
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,19 +70,32 @@ def get_scraper_for_url(url: str):
     Returns:
         Scraper class or instance if supported, always returns something
     """
-    # First check exact pattern matches
-    for pattern, scraper_class in URL_SCRAPER_MAP.items():
-        if pattern in url:
-            if scraper_class == GoogleDriveScraper:
-                return GoogleDriveScraper(url)
-            return scraper_class
-    
-    # Check for Substack URLs
+    # Check for Substack URLs first (most specific)
     if is_substack_url(url):
         # Extract base URL for Substack
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         return SubstackScraper(base_url)
+    
+    # Check for exact pattern matches with more specific conditions
+    for pattern, scraper_class in URL_SCRAPER_MAP.items():
+        if pattern in url:
+            # Additional validation for interviewing.io patterns
+            if pattern.startswith("interviewing.io/"):
+                # Make sure it's actually the right section
+                if pattern == "interviewing.io/blog" and "/blog" in url and "interviewing.io" in url:
+                    return scraper_class
+                elif pattern == "interviewing.io/topics" and "/topics" in url and "interviewing.io" in url:
+                    return scraper_class
+                elif pattern in ["interviewing.io/learn", "interviewing.io/guides"] and ("/learn" in url or "/guides" in url) and "interviewing.io" in url:
+                    return scraper_class
+                # If it's interviewing.io but doesn't match the specific sections, use generic
+                elif "interviewing.io" in url:
+                    return GenericScraper(url)
+            elif pattern == "nilmamano.com/blog/category/dsa" and pattern in url:
+                return scraper_class
+            elif pattern.startswith('drive.google.com'):
+                return GoogleDriveScraper(url)
     
     # Fallback to generic scraper for any other URL
     return GenericScraper(url)
