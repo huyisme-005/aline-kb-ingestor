@@ -10,7 +10,6 @@ import re
 from models import ContentItem
 from typing import List
 import logging
-from math import inf
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem
                 return [ContentItem(
                     title="Empty PDF",
                     content="No text content could be extracted from this PDF.",
-                    content_type="blog",
+                    content_type="book",
                     source_url=None,
                     author=""
                 )]
@@ -66,7 +65,7 @@ def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem
         return [ContentItem(
             title="PDF Processing Error",
             content=f"Error occurred while processing PDF: {str(e)}",
-            content_type="blog",
+            content_type="book",
             source_url=None,
             author=""
         )]
@@ -88,8 +87,8 @@ def _extract_by_chapters(text: str, max_sections: int = 365) -> List[ContentItem
     for pattern in chapter_patterns:
         matches = list(re.finditer(pattern, text, re.IGNORECASE))
         if len(matches) >= 2:  # Need at least 2 chapters to split
-            # Extract all chapters if max_sections is None, otherwise limit
-            chapters_to_extract = matches if max_sections is None else matches[:max_sections]
+            # Extract all chapters if max_sections is 365, otherwise limit
+            chapters_to_extract = matches if max_sections is 365 else matches[:max_sections]
             
             for i, match in enumerate(chapters_to_extract):
                 start_pos = match.start()
@@ -109,7 +108,7 @@ def _extract_by_chapters(text: str, max_sections: int = 365) -> List[ContentItem
                 items.append(ContentItem(
                     title=title,
                     content=chapter_text,
-                    content_type="blog",
+                    content_type="book",
                     source_url=None,
                     author=""
                 ))
@@ -134,7 +133,7 @@ def _extract_by_headers(text: str, max_sections: int = 365) -> List[ContentItem]
             potential_headers.append((i, line))
     
     if len(potential_headers) >= 2:
-        headers_to_extract = potential_headers if max_sections is None else potential_headers[:max_sections]
+        headers_to_extract = potential_headers if max_sections is 365 else potential_headers[:max_sections]
         for i, (line_idx, header) in enumerate(headers_to_extract):
             start_line = line_idx
             end_line = potential_headers[i + 1][0] if i + 1 < len(potential_headers) else len(lines)
@@ -145,7 +144,7 @@ def _extract_by_headers(text: str, max_sections: int = 365) -> List[ContentItem]
             items.append(ContentItem(
                 title=header,
                 content=section_text,
-                content_type="blog",
+                content_type="book",
                 source_url=None,
                 author=""
             ))
@@ -159,14 +158,14 @@ def _extract_by_pages(pdf, max_sections: int = 365) -> List[ContentItem]:
     
     if max_sections is None or total_pages <= max_sections:
         # One item per page
-        pages_to_extract = pdf.pages if max_sections is None else pdf.pages[:max_sections]
+        pages_to_extract = pdf.pages if max_sections is 365 else pdf.pages[:max_sections]
         for i, page in enumerate(pages_to_extract):
             page_text = page.extract_text()
             if page_text:
                 items.append(ContentItem(
                     title=f"Page {i + 1}",
                     content=page_text,
-                    content_type="blog",
+                    content_type="book",
                     source_url=None,
                     author=""
                 ))
@@ -188,7 +187,7 @@ def _extract_by_pages(pdf, max_sections: int = 365) -> List[ContentItem]:
                 items.append(ContentItem(
                     title=f"Section {section_num + 1} (Pages {start_page + 1}-{end_page})",
                     content=section_text.strip(),
-                    content_type="blog",
+                    content_type="book",
                     source_url=None,
                     author=""
                 ))
