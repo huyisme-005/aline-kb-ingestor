@@ -21,14 +21,19 @@ class NilMamanoDSAScraper(BaseScraper):
     BASE = "https://nilmamano.com"
 
     def __init__(self, url: str = None):
-        self.url = url
+        self.url = url or self.BASE + "/blog/category/dsa"
 
     def discover_links(self):
-        """Discover all DS&A post URLs by iterating pages."""
+        """Discover all DS&A post URLs by iterating pages, starting from self.url."""
         page = 1
         urls = []
         while True:
-            resp = requests.get(f"{self.BASE}/blog/category/dsa/page/{page}")
+            # Use self.url as the base for the first page, then paginate
+            if page == 1:
+                page_url = self.url
+            else:
+                page_url = f"{self.BASE}/blog/category/dsa/page/{page}"
+            resp = requests.get(page_url)
             soup = BeautifulSoup(resp.text, "html.parser")
             posts = soup.select(".post-title a")
             if not posts:
