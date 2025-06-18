@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def extract_chapters(pdf_path: str, num_chapters: int = 8) -> List[ContentItem]:
+def extract_chapters(pdf_path: str, num_chapters: int = 365) -> List[ContentItem]:
     """
     Extracts content from a PDF file using multiple strategies.
     
