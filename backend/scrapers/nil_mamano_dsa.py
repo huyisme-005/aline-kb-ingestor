@@ -20,6 +20,10 @@ class NilMamanoDSAScraper(BaseScraper):
 
     BASE = "https://nilmamano.com"
 
+    def __init__(self, url: str = None):
+        # Accept a url argument for compatibility, but it's not used
+        pass
+
     def discover_links(self):
         """Discover all DS&A post URLs by iterating pages."""
         page = 1
