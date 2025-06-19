@@ -45,7 +45,9 @@ custom:
     fileName: backend/requirements.txt
     dockerizePip: true
     slim: true
-    dockerImage: python:3.13-slim
+    dockerImage: python:3.13
+    dockerRunCmdExtraArgs: ['-v', '${env:HOME}/.cargo/registry:/root/.cargo/registry', '-v', '${env:HOME}/.cargo/git:/root/.cargo/git']
+    dockerBuildCmdExtraArgs: ['--build-arg', 'PACKAGES=gcc g++ make']
     dockerExtraFiles:
       - /etc/ssl/certs/ca-certificates.crt
 
