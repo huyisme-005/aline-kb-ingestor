@@ -45,5 +45,8 @@ custom:
     fileName: backend/requirements.txt
     dockerizePip: true
     slim: true
+    dockerImage: python:3.13-slim
+    dockerExtraFiles:
+      - /etc/ssl/certs/ca-certificates.crt
 
  
