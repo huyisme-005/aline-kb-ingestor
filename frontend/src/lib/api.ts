@@ -5,14 +5,13 @@
  * Provides wrappers around backend ingestion endpoints.
  */
 
-// Get API URL from environment or default to localhost
+// Get API URL from environment or default to deployed AWS Lambda base URL (no /{proxy+})
 const getApiUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    // Client-side - use environment variable or default to Lambda URL
-    return process.env.NEXT_PUBLIC_API_URL || 'https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    throw new Error('API URL is not set. Please set NEXT_PUBLIC_API_URL in your environment.');
   }
-  // Server-side - use environment variable or default to Lambda URL
-  return process.env.NEXT_PUBLIC_API_URL || 'https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev';
+  return apiUrl;
 };
 
 const API_URL = getApiUrl();
