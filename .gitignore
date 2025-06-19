@@ -44,6 +44,7 @@ frontend/.next/
 frontend/out/
 frontend/node_modules/
 node_modules/
+huyle010504_accessKeys.csv
 
 # Miscellaneous
 *.swp

@@ -18,8 +18,10 @@ functions:
           cors: true
     environment:
       STAGE: ${self:provider.stage}
-    timeout: 30
+    timeout: 29
     memorySize: 512
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
 
 plugins:
   - serverless-python-requirements
@@ -28,6 +30,9 @@ custom:
   pythonRequirements:
     dockerizePip: non-linux
     requirementsPath: backend/requirements.txt
+    layer:
+      name: python-deps
+      description: Python dependencies for aline-kb-ingestor
     noDeploy:
       - coverage
       - pytest 
