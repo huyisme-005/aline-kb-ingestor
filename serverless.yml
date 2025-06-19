@@ -12,44 +12,41 @@ provider:
     minimumCompressionSize: 1024
     binaryMediaTypes:
       - '*/*'
+  httpApi:
+    cors: true
+    payload: '2.0'
 
 functions:
   api:
-    handler: backend/api/main.handler
+    handler: backend/api/main.lambda_handler
     events:
-      - http:
+      - httpApi:
           path: /{proxy+}
           method: ANY
-          cors:
-            origin: '*'
-            headers:
-              - Content-Type
-              - X-Amz-Date
-              - Authorization
-              - X-Api-Key
-              - X-Amz-Security-Token
-              - X-Amz-User-Agent
-              - Access-Control-Allow-Headers
-              - Access-Control-Allow-Origin
-            allowCredentials: false
     environment:
       STAGE: ${self:provider.stage}
+      PYTHONPATH: /var/task
     timeout: 29
     memorySize: 512
+    vpc:
+      securityGroupIds:
+        - ${ssm:/aline/vpc/security-group-id, 'sg-default'}
+      subnetIds:
+        - ${ssm:/aline/vpc/subnet-id-1, 'subnet-default-1'}
+        - ${ssm:/aline/vpc/subnet-id-2, 'subnet-default-2'}
 
 package:
-  exclude:
-    - frontend/**
-    - backend/tests/**
-    - backend/data/**
-    - backend/env/**
-    - backend/__pycache__/**
-    - .git/**
-    - .gitignore
-    - README.md
-    - node_modules/**
-    - "*.log"
-  include:
+  patterns:
+    - '!frontend/**'
+    - '!backend/tests/**'
+    - '!backend/data/**'
+    - '!backend/env/**'
+    - '!backend/__pycache__/**'
+    - '!.git/**'
+    - '!.gitignore'
+    - '!README.md'
+    - '!node_modules/**'
+    - '!*.log'
     - backend/requirements.txt
     - backend/__init__.py
     - backend/**/*.py
@@ -62,7 +59,14 @@ custom:
     fileName: backend/requirements.txt
     dockerizePip: true
     slim: true
-    dockerImage: python:3.11
+    layer:
+      name: python-deps
+      description: Python dependencies for Aline KB Ingestor
+    noDeploy:
+      - coverage
+      - pytest
+      - pytest-cov
+    dockerImage: public.ecr.aws/sam/build-python3.11:latest
     pipCmdExtraArgs:
       - --upgrade
       - --no-cache-dir

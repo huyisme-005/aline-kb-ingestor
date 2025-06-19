@@ -21,36 +21,34 @@ from api.tasks import ingest_payload
 import os
 import tempfile
 import logging
-from urllib.parse import urlparse  # Ensured urlparse is utilized
-import re  # Utilized for URL validation in ingestion functions
+from urllib.parse import urlparse
+import re
+import json
+from typing import Dict, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create FastAPI app with root_path for Lambda
+stage = os.environ.get('STAGE', 'dev')
+root_path = f"/{stage}" if stage != 'dev' else ""
+
 app = FastAPI(
     title="Aline KB Ingestor",
     description="A tool to ingest technical content into a JSON knowledgebase for AI comment generation",
-    version="0.1.0"
+    version="0.1.0",
+    root_path=root_path
 )
 
 # Add CORS middleware to allow frontend connections
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://0.0.0.0:3000", 
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://0.0.0.0:3001", 
-        "http://127.0.0.1:3001",
-        "http://0.0.0.0:8080", 
-        "http://127.0.0.1:8080",
-        "*"  # Allow all origins in production
-    ],
+    allow_origins=["*"],  # Allow all origins in production
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 def get_scraper_for_url(url: str):
@@ -207,30 +205,60 @@ async def list_scrapers():
 
 @app.get("/health")
 async def health_check():
-    """
-    Health check endpoint.
-    
-    Returns:
-        API health status.
-    """
-    return {"status": "healthy", "service": "aline-kb-ingestor"}
+    """Health check endpoint."""
+    try:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "service": "aline-kb-ingestor",
+                "stage": os.environ.get('STAGE', 'dev')
+            }
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        )
 
 @app.get("/")
 async def root():
-    """
-    Root endpoint providing API information.
-    
-    Returns:
-        Basic API information and available endpoints.
-    """
+    """Root endpoint."""
     return {
         "message": "Aline KB Ingestor API",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "stage": os.environ.get('STAGE', 'dev')
     }
 
-# Create handler for AWS Lambda
-handler = Mangum(app, lifespan="off")
+# Create handler for AWS Lambda with proper configuration
+handler = Mangum(app, lifespan="off", api_gateway_base_path=root_path)
+
+# Add error handling for Lambda
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """
+    AWS Lambda handler with error handling.
+    """
+    try:
+        response = handler(event, context)
+        return response
+    except Exception as e:
+        logger.error(f"Lambda handler error: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "error": "Internal server error",
+                "detail": str(e)
+            }),
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        }
 
 if __name__ == "__main__":
     import uvicorn
