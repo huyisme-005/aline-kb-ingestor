@@ -39,6 +39,8 @@ docker-compose.override.yml
 # Node dependencies
 frontend/node_modules/
 
+.serverless/
+
 # Next.js build output
 frontend/.next/
 frontend/out/
