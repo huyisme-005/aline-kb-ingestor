@@ -19,4 +19,17 @@ functions:
     environment:
       STAGE: ${self:provider.stage}
     timeout: 29
-    memorySize: 512 
+    memorySize: 512
+
+package:
+  exclude:
+    - frontend/**
+    - backend/tests/**
+    - backend/data/**
+    - backend/env/**
+    - backend/__pycache__/**
+    - .git/**
+    - .gitignore
+    - README.md
+    - node_modules/**
+    - *.log 
