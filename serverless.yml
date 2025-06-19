@@ -45,7 +45,18 @@ custom:
     fileName: backend/requirements.txt
     dockerizePip: true
     slim: true
-    dockerImage: public.ecr.aws/sam/build-python3.11:latest
+    dockerImage: python:3.13
+    pipCmdExtraArgs:
+      - --upgrade
+      - --no-cache-dir
+    dockerRunCmdExtraArgs:
+      - -v
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    dockerBuildCmdExtraArgs:
+      - --build-arg
+      - DEBIAN_FRONTEND=noninteractive
+      - --build-arg
+      - 'BUILD_DEPS=gcc g++ make python3-dev libssl-dev'
     dockerExtraFiles:
       - /etc/ssl/certs/ca-certificates.crt
 
