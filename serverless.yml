@@ -43,7 +43,7 @@ plugins:
 custom:
   pythonRequirements:
     fileName: backend/requirements.txt
-    dockerizePip: true
-    slim: true
+    dockerizePip: false
+    slim: false
 
  
