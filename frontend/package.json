@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "next build && next export",
+    "export": "next export",
     "start": "next start",
     "deploy:backend": "cd backend && serverless deploy"
   },
