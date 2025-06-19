@@ -1,0 +1,17 @@
+{
+  "name": "aline-kb-ingestor",
+  "version": "1.0.0",
+  "description": "Knowledge Base Ingestor - Full Stack Application",
+  "scripts": {
+    "deploy:backend": "cd backend && serverless deploy",
+    "deploy:frontend": "echo 'Deploy frontend via AWS Amplify Console'",
+    "install:serverless": "npm install -g serverless",
+    "install:plugin": "npm install --save-dev serverless-python-requirements"
+  },
+  "devDependencies": {
+    "serverless-python-requirements": "^6.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

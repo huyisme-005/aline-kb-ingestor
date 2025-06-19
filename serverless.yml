@@ -1,0 +1,35 @@
+service: aline-kb-ingestor-backend
+
+provider:
+  name: aws
+  runtime: python3.13.2
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  environment:
+    STAGE: ${self:provider.stage}
+
+functions:
+  api:
+    handler: backend/api/main.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+    environment:
+      STAGE: ${self:provider.stage}
+    timeout: 30
+    memorySize: 512
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+    layer:
+      name: python-deps
+      description: Python dependencies for aline-kb-ingestor
+    noDeploy:
+      - coverage
+      - pytest 

@@ -231,3 +231,12 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
+
+# Add Mangum handler for AWS Lambda
+try:
+    from mangum import Mangum
+    handler = Mangum(app)
+except ImportError:
+    # Mangum not available, create a dummy handler
+    def handler(event, context):
+        return {"statusCode": 500, "body": "Mangum not available"}

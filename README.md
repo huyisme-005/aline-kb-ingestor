@@ -1,6 +1,105 @@
 # Aline KB Ingestor
 
-A full‑stack tool to ingest technical content (blogs, guides, PDFs) into a JSON knowledgebase for AI comment generation.
+A full-stack application for ingesting content from various sources (blogs, PDFs, Google Drive, Substack) into a knowledge base.
+
+## 🚀 Quick Deploy to AWS (Free Tier)
+
+### Prerequisites
+- AWS Account
+- AWS CLI configured
+- Node.js 18+ and Python 3.9+
+
+### 1. Deploy Backend to AWS Lambda
+
+```bash
+# Install Serverless Framework
+npm run install:serverless
+
+# Install serverless plugin
+npm run install:plugin
+
+# Deploy backend
+npm run deploy:backend
+```
+
+Note the API Gateway URL from the deployment output.
+
+### 2. Deploy Frontend to AWS Amplify
+
+1. Go to [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
+2. Click "New app" → "Host web app"
+3. Connect your GitHub repository
+4. Build settings will auto-detect from `amplify.yml`
+5. Add environment variable:
+   - Key: `NEXT_PUBLIC_API_URL`
+   - Value: Your Lambda API Gateway URL (from step 1)
+6. Deploy
+
+### 3. Environment Variables
+
+In Amplify Console → App settings → Environment variables:
+```
+NEXT_PUBLIC_API_URL=https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev
+```
+
+## 🛠️ Local Development
+
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+python -m uvicorn api.main:app --reload
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## 📁 Project Structure
+
+```
+aline-kb-ingestor/
+├── backend/           # FastAPI backend
+│   ├── api/          # API endpoints
+│   ├── scrapers/     # Web scrapers
+│   └── importers/    # File importers
+├── frontend/         # Next.js frontend
+│   ├── src/
+│   └── public/
+├── serverless.yml    # AWS Lambda configuration
+├── amplify.yml       # AWS Amplify configuration
+└── package.json      # Root package.json
+```
+
+## 🔧 Supported Content Sources
+
+- **Blogs**: interviewing.io, nilmamano.com
+- **PDFs**: Direct file upload
+- **Google Drive**: Files and folders
+- **Substack**: Any Substack publication
+- **Generic**: Any website URL
+
+## 📊 Free Tier Limits
+
+- **AWS Amplify**: 1,000 build minutes/month, 15GB storage
+- **AWS Lambda**: 1M requests/month, 400K GB-seconds compute
+
+## 🚀 Deployment Commands
+
+```bash
+# Deploy backend only
+npm run deploy:backend
+
+# Deploy frontend (via Amplify Console)
+npm run deploy:frontend
+```
+
+## 📝 License
+
+MIT License - see LICENSE file for details.
 
 ---
 

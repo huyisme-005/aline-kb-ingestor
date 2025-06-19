@@ -8,11 +8,11 @@
 // Get API URL from environment or default to localhost
 const getApiUrl = (): string => {
   if (typeof window !== 'undefined') {
-    // Client-side
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    // Client-side - use environment variable or default to Lambda URL
+    return process.env.NEXT_PUBLIC_API_URL || 'https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev';
   }
-  // Server-side
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // Server-side - use environment variable or default to Lambda URL
+  return process.env.NEXT_PUBLIC_API_URL || 'https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev';
 };
 
 const API_URL = getApiUrl();
