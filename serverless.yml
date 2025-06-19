@@ -37,4 +37,13 @@ package:
     - backend/requirements.txt
     - backend/__init__.py
 
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    fileName: backend/requirements.txt
+    dockerizePip: true
+    slim: true
+
  

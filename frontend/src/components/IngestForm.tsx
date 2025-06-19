@@ -13,7 +13,7 @@ export default function IngestForm() {
   /**
    * Local component state for form inputs and feedback.
    */
-  const [teamId, setTeamId] = useState("");
+  const teamId = "aline123";
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [link, setLink] = useState("");
@@ -42,11 +42,6 @@ export default function IngestForm() {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       setIsLocalhost(hostname === 'localhost' || hostname === '127.0.0.1');
-      
-      // Set a default team ID for localhost
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        setTeamId('aline123');
-      }
     }
   }, []);
 
@@ -144,22 +139,6 @@ export default function IngestForm() {
       <p>Ingest content from supported websites, Google Drive folders, Substack publications, or PDF files into your knowledge base.</p>
       
       <form onSubmit={handleSubmit}>
-        {/* Only show Team ID input when NOT on localhost */}
-        {!isLocalhost && (
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
-              Team ID *
-            </label>
-            <input
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              required
-              style={{ width: "100%", padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}
-              placeholder="Enter your team identifier"
-            />
-          </div>
-        )}
-        
         <div style={{ marginBottom: "20px" }}>
           <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>
             Website URL / Google Drive / Substack
