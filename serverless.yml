@@ -32,4 +32,4 @@ package:
     - .gitignore
     - README.md
     - node_modules/**
-    - *.log 
+    - "*.log" 
