@@ -8,14 +8,14 @@ FastAPI application exposing ingestion endpoints for URLs and PDFs.
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from scrapers.interviewing_blog import InterviewingBlogScraper
-from scrapers.interviewing_topics import InterviewingTopicsScraper
-from scrapers.interviewing_guides import InterviewingGuidesScraper
-from scrapers.nil_mamano_dsa import NilMamanoDSAScraper
-from scrapers.substack_scraper import SubstackScraper
-from scrapers.google_drive_scraper import GoogleDriveScraper
-from scrapers.generic_scraper import GenericScraper
-from importers.pdf_importer import extract_chapters
+from backend.scrapers.interviewing_blog import InterviewingBlogScraper
+from backend.scrapers.interviewing_topics import InterviewingTopicsScraper
+from backend.scrapers.interviewing_guides import InterviewingGuidesScraper
+from backend.scrapers.nil_mamano_dsa import NilMamanoDSAScraper
+from backend.scrapers.substack_scraper import SubstackScraper
+from backend.scrapers.google_drive_scraper import GoogleDriveScraper
+from backend.scrapers.generic_scraper import GenericScraper
+from backend.importers.pdf_importer import extract_chapters
 from api.tasks import ingest_payload
 import os
 import tempfile
