@@ -44,6 +44,6 @@ custom:
   pythonRequirements:
     fileName: backend/requirements.txt
     dockerizePip: false
-    slim: false
+    slim: true
 
  
