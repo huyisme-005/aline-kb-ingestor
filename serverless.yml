@@ -56,7 +56,6 @@ package:
 
 plugins:
   - serverless-python-requirements
-  - serverless-domain-manager
 
 custom:
   pythonRequirements:
@@ -77,10 +76,4 @@ custom:
       - 'BUILD_DEPS=gcc g++ make python3-dev libssl-dev'
     dockerExtraFiles:
       - /etc/ssl/certs/ca-certificates.crt
-  customDomain:
-    domainName: api.${self:provider.stage}.aline-kb-ingestor.com
-    basePath: ''
-    stage: ${self:provider.stage}
-    createRoute53Record: true
-
  
