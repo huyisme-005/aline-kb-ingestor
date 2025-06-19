@@ -27,9 +27,7 @@ plugins:
 custom:
   pythonRequirements:
     dockerizePip: non-linux
-    layer:
-      name: python-deps
-      description: Python dependencies for aline-kb-ingestor
+    requirementsPath: backend/requirements.txt
     noDeploy:
       - coverage
       - pytest 
