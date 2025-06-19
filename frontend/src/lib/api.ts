@@ -11,29 +11,49 @@ const getApiUrl = (): string => {
   if (!apiUrl) {
     throw new Error('API URL is not set. Please set NEXT_PUBLIC_API_URL in your environment.');
   }
-  return apiUrl;
+  // Remove trailing slash if present
+  return apiUrl.replace(/\/$/, '');
 };
 
 const API_URL = getApiUrl();
 
 /**
- * Check if backend is reachable
+ * Check if backend is reachable with retries
  */
-const checkBackendHealth = async (): Promise<boolean> => {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${API_URL}/health`, { 
-      method: 'GET',
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch {
-    return false;
+const checkBackendHealth = async (retries = 3): Promise<boolean> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`${API_URL}/health`, { 
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.status === 'healthy';
+      }
+      
+      // Wait before retrying (exponential backoff)
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+      }
+    } catch (error) {
+      console.warn(`Health check attempt ${i + 1} failed:`, error);
+      // Wait before retrying
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+      }
+    }
   }
+  return false;
 };
 
 /**

@@ -8,6 +8,7 @@ FastAPI application exposing ingestion endpoints for URLs and PDFs.
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 from backend.scrapers.interviewing_blog import InterviewingBlogScraper
 from backend.scrapers.interviewing_topics import InterviewingTopicsScraper
 from backend.scrapers.interviewing_guides import InterviewingGuidesScraper
@@ -45,6 +46,7 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "http://0.0.0.0:8080", 
         "http://127.0.0.1:8080",
+        "*"  # Allow all origins in production
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -223,20 +225,13 @@ async def root():
     """
     return {
         "message": "Aline KB Ingestor API",
-        "version": "0.1.0",
-        "status": "healthy",
-        "description": "Now supports ANY website URL and ALL PDF types"
+        "docs": "/docs",
+        "health": "/health"
     }
+
+# Create handler for AWS Lambda
+handler = Mangum(app, lifespan="off")
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
-
-# Add Mangum handler for AWS Lambda
-try:
-    from mangum import Mangum
-    handler = Mangum(app)
-except ImportError:
-    # Mangum not available, create a dummy handler
-    def handler(event, context):
-        return {"statusCode": 500, "body": "Mangum not available"}
