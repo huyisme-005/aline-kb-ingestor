@@ -28,12 +28,6 @@ functions:
       PYTHONPATH: /var/task
     timeout: 29
     memorySize: 512
-    vpc:
-      securityGroupIds:
-        - ${ssm:/aline/vpc/security-group-id, 'sg-default'}
-      subnetIds:
-        - ${ssm:/aline/vpc/subnet-id-1, 'subnet-default-1'}
-        - ${ssm:/aline/vpc/subnet-id-2, 'subnet-default-2'}
 
 package:
   patterns:
