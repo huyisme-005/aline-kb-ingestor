@@ -12,3 +12,4 @@ pydantic
 pytest
 pytest-cov
 vcrpy
+aws
