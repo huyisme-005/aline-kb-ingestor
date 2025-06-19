@@ -2,14 +2,9 @@
 
 A full-stack application for ingesting content from various sources (blogs, PDFs, Google Drive, Substack) into a knowledge base.
 
-## 🚀 Quick Deploy to AWS (Free Tier)
+## 🚀 Quick Deploy (Free Tier)
 
-### Prerequisites
-- AWS Account
-- AWS CLI configured
-- Node.js 18+ and Python 3.9+
-
-### 1. Deploy Backend to AWS Lambda
+### Backend (AWS Lambda via Serverless)
 
 ```bash
 # Install Serverless Framework
@@ -24,20 +19,18 @@ npm run deploy:backend
 
 Note the API Gateway URL from the deployment output.
 
-### 2. Deploy Frontend to AWS Amplify
+### Frontend (Netlify)
 
-1. Go to [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
-2. Click "New app" → "Host web app"
-3. Connect your GitHub repository
-4. Build settings will auto-detect from `amplify.yml`
-5. Add environment variable:
-   - Key: `NEXT_PUBLIC_API_URL`
-   - Value: Your Lambda API Gateway URL (from step 1)
-6. Deploy
+1. Push your frontend code to GitHub.
+2. Go to [Netlify](https://app.netlify.com/) and connect your repo.
+3. Set the build command to `npm run build` and the publish directory to `frontend/.next`.
+4. Add an environment variable:
+   - `NEXT_PUBLIC_API_URL` = your AWS Lambda API Gateway URL.
+5. Deploy.
 
 ### 3. Environment Variables
 
-In Amplify Console → App settings → Environment variables:
+In Netlify UI → Site settings → Environment variables:
 ```
 NEXT_PUBLIC_API_URL=https://your-lambda-url.execute-api.us-east-1.amazonaws.com/dev
 ```
@@ -84,7 +77,7 @@ aline-kb-ingestor/
 
 ## 📊 Free Tier Limits
 
-- **AWS Amplify**: 1,000 build minutes/month, 15GB storage
+- **Netlify**: 300 build minutes/month, 100GB bandwidth
 - **AWS Lambda**: 1M requests/month, 400K GB-seconds compute
 
 ## 🚀 Deployment Commands
@@ -93,7 +86,7 @@ aline-kb-ingestor/
 # Deploy backend only
 npm run deploy:backend
 
-# Deploy frontend (via Amplify Console)
+# Deploy frontend (via Netlify UI)
 npm run deploy:frontend
 ```
 
