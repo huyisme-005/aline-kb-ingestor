@@ -2,7 +2,7 @@ service: aline-kb-ingestor-backend
 
 provider:
   name: aws
-  runtime: python3.13
+  runtime: python3.11
   region: us-east-1
   stage: ${opt:stage, 'dev'}
   environment:
@@ -45,7 +45,7 @@ custom:
     fileName: backend/requirements.txt
     dockerizePip: true
     slim: true
-    dockerImage: python:3.13
+    dockerImage: python:3.11
     pipCmdExtraArgs:
       - --upgrade
       - --no-cache-dir
