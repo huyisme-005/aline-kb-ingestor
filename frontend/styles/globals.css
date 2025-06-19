@@ -11,3 +11,21 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.example-url-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+.example-url-btn:hover {
+  background-color: #e9ecef;
+}

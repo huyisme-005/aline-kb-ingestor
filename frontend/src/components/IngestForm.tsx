@@ -184,25 +184,7 @@ export default function IngestForm() {
                   key={index}
                   type="button"
                   onClick={() => setExampleUrl(supportedUrl)}
-                  style={{
-                    padding: "8px 12px",
-                    fontSize: "13px",
-                    backgroundColor: "#f8f9fa",
-                    border: "1px solid #dee2e6",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    textDecoration: "none",
-                    textAlign: "left",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    transition: "background-color 0.2s",
-                    ':hover': {
-                      backgroundColor: "#e9ecef"
-                    }
-                  }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = "#e9ecef"}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = "#f8f9fa"}
+                  className="example-url-btn"
                 >
                   <span style={{ fontWeight: "500" }}>{getUrlDisplayName(supportedUrl)}</span>
                   <span style={{ fontSize: "11px", color: "#6c757d", fontFamily: "monospace" }}>
