@@ -8,7 +8,7 @@ FastAPI application exposing ingestion endpoints for URLs and PDFs.
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import awsgi
+from mangum import Mangum
 from backend.scrapers.interviewing_blog import InterviewingBlogScraper
 from backend.scrapers.interviewing_topics import InterviewingTopicsScraper
 from backend.scrapers.interviewing_guides import InterviewingGuidesScraper
@@ -24,7 +24,7 @@ import logging
 from urllib.parse import urlparse
 import re
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -235,12 +235,8 @@ async def root():
         "stage": os.environ.get('STAGE', 'dev')
     }
 
-# Create handler for AWS Lambda with proper configuration
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    AWS Lambda handler with error handling.
-    """
-    return awsgi.response(app, event, context)
+# Create handler for AWS Lambda
+handler = Mangum(app, lifespan="off")
 
 if __name__ == "__main__":
     import uvicorn
