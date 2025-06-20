@@ -18,7 +18,7 @@ provider:
 
 functions:
   api:
-    handler: backend/api/main.lambda_handler
+    handler: backend/api/main.handler
     events:
       - httpApi:
           path: /{proxy+}

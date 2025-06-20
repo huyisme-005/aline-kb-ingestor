@@ -8,7 +8,7 @@ FastAPI application exposing ingestion endpoints for URLs and PDFs.
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
+import awsgi
 from backend.scrapers.interviewing_blog import InterviewingBlogScraper
 from backend.scrapers.interviewing_topics import InterviewingTopicsScraper
 from backend.scrapers.interviewing_guides import InterviewingGuidesScraper
@@ -236,29 +236,11 @@ async def root():
     }
 
 # Create handler for AWS Lambda with proper configuration
-handler = Mangum(app, lifespan="off", api_gateway_base_path=root_path)
-
-# Add error handling for Lambda
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     AWS Lambda handler with error handling.
     """
-    try:
-        response = handler(event, context)
-        return response
-    except Exception as e:
-        logger.error(f"Lambda handler error: {str(e)}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps({
-                "error": "Internal server error",
-                "detail": str(e)
-            }),
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            }
-        }
+    return awsgi.response(app, event, context)
 
 if __name__ == "__main__":
     import uvicorn
