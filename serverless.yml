@@ -13,7 +13,6 @@ provider:
     binaryMediaTypes:
       - '*/*'
   httpApi:
-    cors: true
     payload: '2.0'
 
 functions:
